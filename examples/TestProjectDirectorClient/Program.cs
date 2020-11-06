@@ -5,6 +5,7 @@
 //-------------------------------------------------------------
 namespace TestProjectDirectorClient
 {
+    using Newtonsoft.Json;
     using System;
     using Vasont.Inspire.Core.Extensions;
     using Vasont.Inspire.Core.Utility;
@@ -61,7 +62,22 @@ namespace TestProjectDirectorClient
                         Console.WriteLine($"Successfully Authenticated. Messages:{Environment.NewLine}");
 
                         // Get a list of Available Projects from Project Director
-                        var test = AsyncHelper.RunSync(() => projectDirectorClient.RetrieveProjectsAsync());
+                        var projects = AsyncHelper.RunSync(() => projectDirectorClient.RetrieveProjectsAsync());
+
+                        if (projects != null)
+                        {
+                            Console.WriteLine($"Found {projects.Count} Projects for this user");
+
+                            projects.ForEach(project =>
+                            {
+                            // Output the project details
+                            Console.WriteLine(JsonConvert.SerializeObject(project));
+                            });
+                        }
+                        else
+                        {
+                            Console.WriteLine("Failed to retrieve Projects for this user");
+                        }
                     }
                     else
                     {
