@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30517.126
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vasont.Inspire.ProjectDirectorClient", "src\Vasont.Inspire.ProjectDirectorClient.csproj", "{45241593-4227-4E05-AEF8-E4B5E03F468C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{2A4C9FE6-0C4B-4760-9399-4BBFF5F58698}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestProjectDirectorClient", "examples\TestProjectDirectorClient\TestProjectDirectorClient.csproj", "{EC475B02-5D20-4D56-A441-8A569637DBC0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{45241593-4227-4E05-AEF8-E4B5E03F468C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45241593-4227-4E05-AEF8-E4B5E03F468C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45241593-4227-4E05-AEF8-E4B5E03F468C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45241593-4227-4E05-AEF8-E4B5E03F468C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC475B02-5D20-4D56-A441-8A569637DBC0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC475B02-5D20-4D56-A441-8A569637DBC0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC475B02-5D20-4D56-A441-8A569637DBC0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC475B02-5D20-4D56-A441-8A569637DBC0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{EC475B02-5D20-4D56-A441-8A569637DBC0} = {2A4C9FE6-0C4B-4760-9399-4BBFF5F58698}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C7681095-921B-4830-8F56-6EC6CD70F8A1}
+	EndGlobalSection
+EndGlobal
