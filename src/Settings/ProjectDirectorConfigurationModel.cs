@@ -1,9 +1,10 @@
-﻿//-------------------------------------------------------------
-// <copyright file="ProjectDirectorConfigurationModel.cs" company="Vasont Systems">
-// Copyright (c) Vasont Systems. All rights reserved.
+﻿//-----------------------------------------------------------------------
+// <copyright file="ProjectDirectorConfigurationModel.cs" company="GlobalLink Vasont">
+//     Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
-//-------------------------------------------------------------
-namespace Vasont.Inspire.ProjectDirector.Client.Settings
+//-----------------------------------------------------------------------
+
+namespace Vasont.Inspire.ProjectDirectorClient.Settings
 {
     /// <summary>
     /// This class represents the configuration model used for the Project Director Rest Api integration.

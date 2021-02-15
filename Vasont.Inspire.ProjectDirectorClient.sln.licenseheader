@@ -1,0 +1,34 @@
+﻿extensions: .cs 
+//-----------------------------------------------------------------------
+// <copyright file="%FileName%" company="GlobalLink Vasont">
+//     Copyright (c) GlobalLink Vasont. All rights reserved.
+// </copyright>
+//-----------------------------------------------------------------------
+
+extensions: .aspx .ascx
+<%-- 
+    File="%FileName%" Copyright (c) GlobalLink Vasont. All rights reserved.
+--%>
+extensions: .js
+//---------------------------------------------------------------------------------------
+// File="%FileName%" Copyright (c) GlobalLink Vasont. All rights reserved.
+//-------------------------------------------------------------------------------------------------------------------------
+
+
+extensions: .cshtml
+
+@*
+
+//---------------------------------------------------------------------------------------
+
+// File="%FileName%" Copyright (c) GlobalLink Vasont. All rights reserved.
+//-------------------------------------------------------------------------------------------------------------------------
+
+*@
+
+
+
+extensions:  .xml .config .xsd
+<!--    
+    File="%FileName%" Copyright (c) GlobalLink Vasont. All rights reserved.
+-->

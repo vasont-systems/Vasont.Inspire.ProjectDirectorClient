@@ -1,7 +1,10 @@
 <StyleCopSettings Version="105">
   <GlobalSettings>
     <CollectionProperty Name="RecognizedWords">
+      <Value>aautoquote</Value>
       <Value>Api</Value>
+      <Value>aquotescope</Value>
+      <Value>parsable</Value>
     </CollectionProperty>
   </GlobalSettings>
 </StyleCopSettings>
