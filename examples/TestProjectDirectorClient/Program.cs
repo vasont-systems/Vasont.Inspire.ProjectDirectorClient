@@ -1,16 +1,17 @@
-﻿//-------------------------------------------------------------
-// <copyright file="Program.cs" company="Vasont Systems">
-// Copyright (c) Vasont Systems. All rights reserved.
+﻿//-----------------------------------------------------------------------
+// <copyright file="Program.cs" company="GlobalLink Vasont">
+//     Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
-//-------------------------------------------------------------
+//-----------------------------------------------------------------------
+
 namespace TestProjectDirectorClient
 {
-    using Newtonsoft.Json;
     using System;
+    using Newtonsoft.Json;
     using Vasont.Inspire.Core.Extensions;
     using Vasont.Inspire.Core.Utility;
-    using Vasont.Inspire.ProjectDirector.Client;
-    using Vasont.Inspire.ProjectDirector.Client.Settings;
+    using Vasont.Inspire.ProjectDirectorClient;
+    using Vasont.Inspire.ProjectDirectorClient.Settings;
 
     /// <summary>
     /// This is the main entry point of the Test Project Director Client Console Application.

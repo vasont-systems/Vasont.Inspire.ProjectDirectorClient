@@ -1,9 +1,10 @@
-﻿//-------------------------------------------------------------
-// <copyright file="BaseClient.cs" company="Vasont Systems">
-// Copyright (c) Vasont Systems. All rights reserved.
+﻿//-----------------------------------------------------------------------
+// <copyright file="BaseClient.cs" company="GlobalLink Vasont">
+//     Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
-//-------------------------------------------------------------
-namespace Vasont.Inspire.ProjectDirector.Client
+//-----------------------------------------------------------------------
+
+namespace Vasont.Inspire.ProjectDirectorClient
 {
     using System;
     using System.IO;
@@ -18,8 +19,8 @@ namespace Vasont.Inspire.ProjectDirector.Client
     using Newtonsoft.Json;
     using Vasont.Inspire.Core.Errors;
     using Vasont.Inspire.Models.Common;
-    using Vasont.Inspire.ProjectDirector.Client.Properties;
-    using Vasont.Inspire.ProjectDirector.Client.Settings;
+    using Vasont.Inspire.ProjectDirectorClient.Properties;
+    using Vasont.Inspire.ProjectDirectorClient.Settings;
 
     /// <summary>
     /// This class represents the Base Client
@@ -36,11 +37,6 @@ namespace Vasont.Inspire.ProjectDirector.Client
         #endregion Private Constants
 
         #region Private Fields
-
-        /// <summary>
-        /// The configuration
-        /// </summary>
-        private ProjectDirectorConfigurationModel configuration;
 
         /// <summary>
         /// Contains a value indicating whether the class has been disposed.
@@ -61,12 +57,20 @@ namespace Vasont.Inspire.ProjectDirector.Client
         /// <param name="configuration">The configuration.</param>
         public BaseClient(ProjectDirectorConfigurationModel configuration)
         {
-            this.configuration = configuration;
+            this.Configuration = configuration;
         }
 
         #endregion Constructors
 
         #region Public Properties
+
+        /// <summary>
+        /// Gets or sets the Project Director Client configuration.
+        /// </summary>
+        /// <value>
+        /// The configuration.
+        /// </value>
+        public ProjectDirectorConfigurationModel Configuration { get; set; }
 
         /// <summary>
         /// Gets or sets the authorization token.
@@ -137,55 +141,65 @@ namespace Vasont.Inspire.ProjectDirector.Client
         public async Task<bool> AuthenticateAsync(string scopes = "", CancellationToken cancellationToken = default(CancellationToken))
         {
             bool authenticationSuccessful;
-            string requestScopes = scopes + (!string.IsNullOrWhiteSpace(scopes) ? " " : string.Empty) + string.Join(" ", this.configuration.TargetResourceScopes);
 
-            if (this.configuration.AuthenticationMethod == ClientAuthenticationMethods.Delegation && string.IsNullOrWhiteSpace(this.configuration.DelegatedAccessToken))
+            // Check to see if this Client has already authenticated
+            if (!this.HasAuthenticated)
             {
-                throw new ClientException(this.configuration, Resources.AccessMethodRequiresTokenErrorText);
-            }
+                string requestScopes = scopes + (!string.IsNullOrWhiteSpace(scopes) ? " " : string.Empty) + string.Join(" ", this.Configuration.TargetResourceScopes);
 
-            // if we're using discovery and need to call it...
-            if (this.discovery == null && this.configuration.UseDiscovery)
-            {
-                // get the discovery document.
-                this.discovery = await this.RequestDiscoveryAsync(this.configuration.AuthorityUri, cancellationToken);
-
-                if (this.discovery.IsError)
+                if (this.Configuration.AuthenticationMethod == ClientAuthenticationMethods.Delegation && string.IsNullOrWhiteSpace(this.Configuration.DelegatedAccessToken))
                 {
-                    throw new ClientException(this.configuration, this.discovery.Error);
+                    throw new ClientException(this.Configuration, Resources.AccessMethodRequiresTokenErrorText);
+                }
+
+                // if we're using discovery and need to call it...
+                if (this.discovery == null && this.Configuration.UseDiscovery)
+                {
+                    // get the discovery document.
+                    this.discovery = await this.RequestDiscoveryAsync(this.Configuration.AuthorityUri, cancellationToken);
+
+                    if (this.discovery.IsError)
+                    {
+                        throw new ClientException(this.Configuration, this.discovery.Error);
+                    }
+                }
+
+                switch (this.Configuration.AuthenticationMethod)
+                {
+                    case ClientAuthenticationMethods.Delegation:
+                        this.TokenResponse = await this.RequestDelegationAsync(requestScopes, cancellationToken).ConfigureAwait(false);
+                        break;
+
+                    case ClientAuthenticationMethods.ClientCredentials:
+                        this.TokenResponse = await this.RequestClientCredentialsAsync(requestScopes, cancellationToken).ConfigureAwait(false);
+                        break;
+
+                    case ClientAuthenticationMethods.ResourceOwnerPassword:
+                        this.TokenResponse = await this.RequestResourceOwnerPasswordAsync(requestScopes, cancellationToken).ConfigureAwait(false);
+                        break;
+                }
+
+                authenticationSuccessful = this.TokenResponse != null && !this.TokenResponse.IsError;
+
+                // an error occurred...
+                if (!authenticationSuccessful)
+                {
+                    string errorMessage = this.TokenResponse.Error + Environment.NewLine + this.TokenResponse.ErrorDescription;
+                    this.LastErrorResponse = new ErrorResponseModel();
+                    this.LastErrorResponse.Messages.Add(new ErrorModel
+                    {
+                        Message = errorMessage,
+                        EventDate = DateTime.UtcNow
+                    });
+
+                    // bubble up an error response.
+                    throw new ClientException(this.Configuration, errorMessage);
                 }
             }
-
-            switch (this.configuration.AuthenticationMethod)
+            else
             {
-                case ClientAuthenticationMethods.Delegation:
-                    this.TokenResponse = await this.RequestDelegationAsync(requestScopes, cancellationToken).ConfigureAwait(false);
-                    break;
-
-                case ClientAuthenticationMethods.ClientCredentials:
-                    this.TokenResponse = await this.RequestClientCredentialsAsync(requestScopes, cancellationToken).ConfigureAwait(false);
-                    break;
-
-                case ClientAuthenticationMethods.ResourceOwnerPassword:
-                    this.TokenResponse = await this.RequestResourceOwnerPasswordAsync(requestScopes, cancellationToken).ConfigureAwait(false);
-                    break;
-            }
-
-            authenticationSuccessful = this.TokenResponse != null && !this.TokenResponse.IsError;
-
-            // an error occurred...
-            if (!authenticationSuccessful)
-            {
-                string errorMessage = this.TokenResponse.Error + Environment.NewLine + this.TokenResponse.ErrorDescription;
-                this.LastErrorResponse = new ErrorResponseModel();
-                this.LastErrorResponse.Messages.Add(new ErrorModel
-                {
-                    Message = errorMessage,
-                    EventDate = DateTime.UtcNow
-                });
-
-                // bubble up an error response.
-                throw new ClientException(this.configuration, errorMessage);
+                // This client is already authenticated so return true
+                authenticationSuccessful = true;
             }
 
             return authenticationSuccessful;
@@ -231,7 +245,7 @@ namespace Vasont.Inspire.ProjectDirector.Client
         public HttpWebRequest CreateRequest(string relativeUri, string method, bool noCache = true, ICredentials credentials = null, string contentType = "application/json")
         {
             // request /Token, on success, return and store token.
-            var request = WebRequest.CreateHttp(new Uri($"{this.configuration.ResourceUri}{relativeUri}"));
+            var request = WebRequest.CreateHttp(new Uri($"{this.Configuration.ResourceUri}{relativeUri}"));
             request.Method = method;
 
             if (credentials == null)
@@ -241,7 +255,7 @@ namespace Vasont.Inspire.ProjectDirector.Client
             }
 
             request.Credentials = credentials;
-            request.UserAgent = this.configuration.UserAgent;
+            request.UserAgent = this.Configuration.UserAgent;
             request.Accept = "application/json";
             request.ContentType = contentType;
 
@@ -516,19 +530,19 @@ namespace Vasont.Inspire.ProjectDirector.Client
 
             using (HttpClient client = new HttpClient())
             {
-                if (this.configuration.IncludeBasicAuthenticationHeader)
+                if (this.Configuration.IncludeBasicAuthenticationHeader)
                 {
-                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.configuration.ClientId + ":" + this.configuration.ClientSecret));
+                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.Configuration.ClientId + ":" + this.Configuration.ClientSecret));
 
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", headerValue);
                 }
 
                 var tokenRequest = new ClientCredentialsTokenRequest
                 {
-                    Address = this.configuration.AuthorityUri.ToString(),
-                    ClientId = this.configuration.ClientId,
+                    Address = this.Configuration.AuthorityUri.ToString(),
+                    ClientId = this.Configuration.ClientId,
                     Scope = scopes,
-                    ClientSecret = this.configuration.ClientSecret
+                    ClientSecret = this.Configuration.ClientSecret
                 };
 
                 result = await client.RequestClientCredentialsTokenAsync(tokenRequest, cancellationToken)
@@ -552,23 +566,23 @@ namespace Vasont.Inspire.ProjectDirector.Client
 
             using (HttpClient client = new HttpClient())
             {
-                if (this.configuration.IncludeBasicAuthenticationHeader)
+                if (this.Configuration.IncludeBasicAuthenticationHeader)
                 {
-                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.configuration.ClientId + ":" + this.configuration.ClientSecret));
+                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.Configuration.ClientId + ":" + this.Configuration.ClientSecret));
 
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", headerValue);
                 }
 
                 var tokenRequest = new TokenRequest
                 {
-                    Address = this.configuration.AuthorityUri.ToString(),
+                    Address = this.Configuration.AuthorityUri.ToString(),
                     GrantType = DelegationGrantTypeName,
-                    ClientId = this.configuration.ClientId,
-                    ClientSecret = this.configuration.ClientSecret,
+                    ClientId = this.Configuration.ClientId,
+                    ClientSecret = this.Configuration.ClientSecret,
                     Parameters =
                         {
                             { "scope", scopes },
-                            { "token", this.configuration.DelegatedAccessToken }
+                            { "token", this.Configuration.DelegatedAccessToken }
                         }
                 };
 
@@ -593,21 +607,21 @@ namespace Vasont.Inspire.ProjectDirector.Client
 
             using (HttpClient client = new HttpClient())
             {
-                if (this.configuration.IncludeBasicAuthenticationHeader)
+                if (this.Configuration.IncludeBasicAuthenticationHeader)
                 {
-                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.configuration.ClientId + ":" + this.configuration.ClientSecret));
+                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.Configuration.ClientId + ":" + this.Configuration.ClientSecret));
 
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", headerValue);
                 }
 
                 var config = new PasswordTokenRequest
                 {
-                    Address = this.configuration.AuthorityUri.ToString(),
-                    ClientId = this.configuration.ClientId,
+                    Address = this.Configuration.AuthorityUri.ToString(),
+                    ClientId = this.Configuration.ClientId,
                     Scope = scopes,
-                    ClientSecret = this.configuration.ClientSecret,
-                    UserName = this.configuration.UserName,
-                    Password = this.configuration.Password,
+                    ClientSecret = this.Configuration.ClientSecret,
+                    UserName = this.Configuration.UserName,
+                    Password = this.Configuration.Password,
                 };
 
                 result = await client.RequestPasswordTokenAsync(config, cancellationToken)

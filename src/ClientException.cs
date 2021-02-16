@@ -1,12 +1,13 @@
-﻿//-------------------------------------------------------------
-// <copyright file="ClientException.cs" company="Vasont Systems">
-// Copyright (c) Vasont Systems. All rights reserved.
+﻿//-----------------------------------------------------------------------
+// <copyright file="ClientException.cs" company="GlobalLink Vasont">
+//     Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
-//-------------------------------------------------------------
-namespace Vasont.Inspire.ProjectDirector.Client
+//-----------------------------------------------------------------------
+
+namespace Vasont.Inspire.ProjectDirectorClient
 {
     using System;
-    using Vasont.Inspire.ProjectDirector.Client.Settings;
+    using Vasont.Inspire.ProjectDirectorClient.Settings;
 
     /// <summary>
     /// This class extends the default client exception to include additional configuration detail.
