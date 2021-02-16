@@ -49,11 +49,14 @@ namespace Vasont.Inspire.ProjectDirectorClient.Extensions
             formDataStream.Write(nameContentBytes, 0, nameContentBytes.Length);
             formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
 
-            byte[] fileData = File.ReadAllBytes(formModel.FilePath);
+            if (File.Exists(formModel.FilePath))
+            { 
+                byte[] fileData = File.ReadAllBytes(formModel.FilePath);
 
-            // Write the file data directly to the Stream, rather than serializing it to a string.
-            formDataStream.Write(fileData, 0, fileData.Length);
-            formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
+                // Write the file data directly to the Stream, rather than serializing it to a string.
+                formDataStream.Write(fileData, 0, fileData.Length);
+                formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
+            }
 
             byte[] batchNameContentBytes = encoding.GetBytes(
                 string.Format(
