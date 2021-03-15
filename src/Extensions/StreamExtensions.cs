@@ -38,47 +38,47 @@ namespace Vasont.Inspire.ProjectDirectorClient.Extensions
 
             byte[] lineBreakBytes = encoding.GetBytes("\r\n");
 
-            byte[] nameContentBytes = encoding.GetBytes(
+            string nameContent =
                 string.Format(
-                    "--{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\nfilename=\"{2}\"\r\nContent-Type: {3}\r\n\r\n",
+                    "----{0}\r\nContent-Disposition: form-data; name=\"{1}\"; filename=\"{2}\"\r\nContent-Type: {3}\r\n",
                     boundary,
                     "file",
-                    formModel.FilePath,
-                    formModel.ContentType));
+                    Path.GetFileName(formModel.FilePath),
+                    formModel.ContentType);
 
-            formDataStream.Write(nameContentBytes, 0, nameContentBytes.Length);
+            formDataStream.Write(encoding.GetBytes(nameContent), 0, encoding.GetByteCount(nameContent));
             formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
 
             if (File.Exists(formModel.FilePath))
-            { 
-                byte[] fileData = File.ReadAllBytes(formModel.FilePath);
+            {
+                string fileData = File.ReadAllText(formModel.FilePath);
 
                 // Write the file data directly to the Stream, rather than serializing it to a string.
-                formDataStream.Write(fileData, 0, fileData.Length);
+                formDataStream.Write(encoding.GetBytes(fileData), 0, encoding.GetByteCount(fileData));
                 formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
             }
 
-            byte[] batchNameContentBytes = encoding.GetBytes(
+            string batchNameContent =
                 string.Format(
-                    "--{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\n\r\n{2}",
+                    "----{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\nContent-Type: text/plain\r\n\r\n{2}",
                     boundary,
                     "batchName",
-                    formModel.BatchName));
+                    formModel.BatchName);
 
-            formDataStream.Write(batchNameContentBytes, 0, batchNameContentBytes.Length);
+            formDataStream.Write(encoding.GetBytes(batchNameContent), 0, encoding.GetByteCount(batchNameContent));
             formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
 
             // Only add the File Format Name if the file is Parsable
             if (!formModel.NonParsable && !formModel.ReferenceFile)
             {
-                byte[] fileFormatNameContentBytes = encoding.GetBytes(
+                string fileFormatNameContent =
                     string.Format(
-                        "--{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\n\r\n{2}",
+                        "----{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\nContent-Type: text/plain\r\n\r\n{2}",
                         boundary,
                         "fileFormatName",
-                        formModel.BatchName));
+                        formModel.FileFormatName);
 
-                formDataStream.Write(fileFormatNameContentBytes, 0, fileFormatNameContentBytes.Length);
+                formDataStream.Write(encoding.GetBytes(fileFormatNameContent), 0, encoding.GetByteCount(fileFormatNameContent));
                 formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
             }
 
@@ -86,43 +86,65 @@ namespace Vasont.Inspire.ProjectDirectorClient.Extensions
             {
                 if (string.IsNullOrWhiteSpace(formModel.ReferenceFileTargetLanguageLevel))
                 {
-                    byte[] submissionLevelContentBytes = encoding.GetBytes(
-                        string.Format(
-                            "--{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\n\r\n{2}",
+                    string submissionLevelContent = string.Format(
+                            "----{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\nContent-Type: text/plain\r\n\r\n{2}",
                             boundary,
                             "submissionLevel",
-                            true));
+                            true);
 
-                    formDataStream.Write(submissionLevelContentBytes, 0, submissionLevelContentBytes.Length);
+                    formDataStream.Write(encoding.GetBytes(submissionLevelContent), 0, encoding.GetByteCount(submissionLevelContent));
                     formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
                 }
                 else
                 {
-                    byte[] targetLanguageLevelContentBytes = encoding.GetBytes(
-                        string.Format(
-                            "--{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\n\r\n{2}",
+                    string targetLanguageLevelContent = string.Format(
+                            "----{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\nContent-Type: text/plain\r\n\r\n{2}",
                             boundary,
                             "targetLanguageLevel",
-                            formModel.ReferenceFileTargetLanguageLevel));
+                            formModel.ReferenceFileTargetLanguageLevel);
 
-                    formDataStream.Write(targetLanguageLevelContentBytes, 0, targetLanguageLevelContentBytes.Length);
+                    formDataStream.Write(encoding.GetBytes(targetLanguageLevelContent), 0, encoding.GetByteCount(targetLanguageLevelContent));
                     formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
                 }
             }
 
-            byte[] extractArchiveContentBytes = encoding.GetBytes(
+            string extractArchvieContent =
                 string.Format(
-                    "--{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\n\r\n{2}",
+                    "----{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\nContent-Type: text/plain\r\n\r\n{2}",
                     boundary,
                     "extractArchive",
-                    formModel.ExtractArchive));
+                    formModel.ExtractArchive.ToString().ToLower());
 
-            formDataStream.Write(extractArchiveContentBytes, 0, extractArchiveContentBytes.Length);
+            formDataStream.Write(encoding.GetBytes(extractArchvieContent), 0, encoding.GetByteCount(extractArchvieContent));
             formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
 
-            // Add the end of the request.  Start with a newline
-            byte[] footerBytes = encoding.GetBytes("\r\n--" + boundary + "--\r\n");
-            formDataStream.Write(footerBytes, 0, footerBytes.Length);
+            // Add the end of the request.
+            string footerContent = string.Format("----" + boundary + "--\r\n");
+
+            formDataStream.Write(encoding.GetBytes(footerContent), 0, encoding.GetByteCount(footerContent));
+        }
+
+        /// <summary>
+        /// Reads all bytes.
+        /// </summary>
+        /// <param name="stream">The stream.</param>
+        /// <returns>Returns a byte array containing the contents of the stream.</returns>
+        public static byte[] ReadAllBytes(this Stream stream)
+        {
+            byte[] returnBytes = { };
+
+            if (stream is MemoryStream)
+            {
+                returnBytes = ((MemoryStream)stream).ToArray();
+            }
+
+            using (var memoryStream = new MemoryStream())
+            {
+                stream.CopyTo(memoryStream);
+                returnBytes = memoryStream.ToArray();
+            }
+
+            return returnBytes;
         }
     }
 }

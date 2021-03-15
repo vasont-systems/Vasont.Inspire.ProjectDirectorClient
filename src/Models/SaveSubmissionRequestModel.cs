@@ -6,6 +6,8 @@
 
 namespace Vasont.Inspire.ProjectDirectorClient.Models
 {
+    using Newtonsoft.Json;
+
     /// <summary>
     /// This class represents the Save Submission Request Model.
     /// </summary>
@@ -16,7 +18,8 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// </summary>
         /// <value>
         ///   <c>true</c> if [automatic start]; otherwise, <c>false</c>.
-        /// </value>
+        /// </value>        
+        [JsonProperty(PropertyName = "autoStart")]
         public bool AutoStart { get; set; }
     }
 }

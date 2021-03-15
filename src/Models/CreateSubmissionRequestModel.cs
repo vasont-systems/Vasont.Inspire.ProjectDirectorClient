@@ -7,10 +7,14 @@
 namespace Vasont.Inspire.ProjectDirectorClient.Models
 {
     using System.Collections.Generic;
+    using System.Runtime.Serialization;
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Converters;
 
     /// <summary>
     /// This enumeration is used for the Submission Claim Scope
     /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))] 
     public enum SubmissionClaimScope
     {
         /// <summary>
@@ -30,6 +34,43 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
     }
 
     /// <summary>
+    /// This enumeration is used to define the scopes of the project director webhook calls
+    /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
+    public enum WebHookScope
+    {
+        /// <summary>
+        /// Receive a webhook when the submission is completed
+        /// </summary>
+        [EnumMember(Value = "submission.completed")]
+        SubmissionCompleted,
+
+        /// <summary>
+        /// Receive a webhook if the submission is canceled
+        /// </summary>
+        [EnumMember(Value = "submission.cancelled")]
+        SubmissionCancelled,
+
+        /// <summary>
+        /// Receive a webhook when any of the targets in the submission is completed
+        /// </summary>
+        [EnumMember(Value = "target.completed")]
+        TargetCompleted,
+
+        /// <summary>
+        /// Receive a webhook if any of the targets in the submission is canceled
+        /// </summary>
+        [EnumMember(Value = "target.cancelled")]
+        TargetCancelled,
+
+        /// <summary>
+        /// Receive a webhook if, after completion, any of the targets in the submission is reopened/updated
+        /// </summary>
+        [EnumMember(Value = "target.reopened")]
+        TargetReopened
+    }
+
+    /// <summary>
     /// This class represents the Create Submission Request Model
     /// </summary>
     public class CreateSubmissionRequestModel
@@ -39,9 +80,6 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// </summary>
         public CreateSubmissionRequestModel()
         {
-            this.CustomAttributes = new Dictionary<string, string>();
-            this.MetaData = new Dictionary<string, string>();
-            this.Owners = new List<long>();
             this.ClaimScope = SubmissionClaimScope.BATCH;
         }
 
@@ -51,6 +89,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The claim scope.
         /// </value>
+        [JsonProperty(PropertyName = "claimScope")]
         public SubmissionClaimScope ClaimScope { get; set; }
 
         /// <summary>
@@ -59,7 +98,17 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The custom attributes.
         /// </value>
-        public Dictionary<string, string> CustomAttributes { get; set; }
+        [JsonProperty(PropertyName = "customAttributes")]
+        public List<CustomAttributeModel> CustomAttributes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Batch Information Models.
+        /// </summary>
+        /// <value>
+        /// The Batch Information Models.
+        /// </value>
+        [JsonProperty(PropertyName = "batchInfos")]
+        public List<BatchInformationModel> BatchInfos { get; set; }
 
         /// <summary>
         /// Gets or sets the description.
@@ -67,6 +116,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The description.
         /// </value>
+        [JsonProperty(PropertyName = "description")]
         public string Description { get; set; }
 
         /// <summary>
@@ -75,6 +125,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The date by when the submission has to be completed expressed in Unix Timestamp in milliseconds
         /// </value>
+        [JsonProperty(PropertyName = "dueDate")]
         public long DueDate { get; set; }
 
         /// <summary>
@@ -83,6 +134,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The instructions.
         /// </value>
+        [JsonProperty(PropertyName = "instructions")]
         public string Instructions { get; set; }
 
         /// <summary>
@@ -91,6 +143,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         ///   <c>true</c> if this instance is favorite; otherwise, <c>false</c>.
         /// </value>
+        [JsonProperty(PropertyName = "isFavorite")]
         public bool IsFavorite { get; set; }
 
         /// <summary>
@@ -99,7 +152,8 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The meta data.
         /// </value>
-        public Dictionary<string, string> MetaData { get; set; }
+        [JsonProperty(PropertyName = "metadata")]
+        public List<MetaDataModel> MetaData { get; set; }
 
         /// <summary>
         /// Gets or sets the name.
@@ -107,6 +161,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The name.
         /// </value>
+        [JsonProperty(PropertyName = "name")]
         public string Name { get; set; }
 
         /// <summary>
@@ -115,7 +170,17 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The owners.
         /// </value>
+        [JsonProperty(PropertyName = "owners")]
         public List<long> Owners { get; set; }
+
+        /// <summary>
+        /// Gets or sets the pa client identifier.
+        /// </summary>
+        /// <value>
+        /// The pa client identifier.
+        /// </value>
+        [JsonProperty(PropertyName = "paClientId")]
+        public long? PaClientId { get; set; }
 
         /// <summary>
         /// Gets or sets the pa job number.
@@ -123,6 +188,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The pa job number.
         /// </value>
+        [JsonProperty(PropertyName = "paJobNumber")]
         public string PaJobNumber { get; set; }
 
         /// <summary>
@@ -131,6 +197,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The project identifier.
         /// </value>
+        [JsonProperty(PropertyName = "projectId")]
         public long ProjectId { get; set; }
 
         /// <summary>
@@ -139,7 +206,8 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         ///   <c>true</c> if [quote enabled]; otherwise, <c>false</c>.
         /// </value>
-        public bool QuoteEnabled { get; set; }
+        [JsonProperty(PropertyName = "quoteEnabled")]
+        public bool? QuoteEnabled { get; set; }
 
         /// <summary>
         /// Gets or sets a value indicating whether [request quote].
@@ -147,7 +215,8 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         ///   <c>true</c> if [request quote]; otherwise, <c>false</c>.
         /// </value>
-        public bool RequestQuote { get; set; }
+        [JsonProperty(PropertyName = "requestQuote")]
+        public bool? RequestQuote { get; set; }
 
         /// <summary>
         /// Gets or sets the source language.
@@ -155,6 +224,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The source language.
         /// </value>
+        [JsonProperty(PropertyName = "sourceLanguage")]
         public string SourceLanguage { get; set; }
 
         /// <summary>
@@ -163,6 +233,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The template identifier.
         /// </value>
-        public long TemplateId { get; set; }
+        [JsonProperty(PropertyName = "templateId")]
+        public long? TemplateId { get; set; }
     }
 }

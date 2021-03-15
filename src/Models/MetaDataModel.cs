@@ -1,5 +1,5 @@
 ﻿//-----------------------------------------------------------------------
-// <copyright file="CustomAttributeModel.cs" company="GlobalLink Vasont">
+// <copyright file="MetaDataModel.cs" company="GlobalLink Vasont">
 //     Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
 //-----------------------------------------------------------------------
@@ -9,18 +9,18 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
     using Newtonsoft.Json;
 
     /// <summary>
-    /// This class represents the Custom Attribute Model used when sending submissions.
+    /// This class represents the Meta Data Model that is used when sending submissions.
     /// </summary>
-    public class CustomAttributeModel
+    public class MetaDataModel
     {
         /// <summary>
-        /// Gets or sets the name.
+        /// Gets or sets the key.
         /// </summary>
         /// <value>
-        /// The name.
+        /// The key.
         /// </value>
-        [JsonProperty(PropertyName = "name")]
-        public string Name { get; set; }
+        [JsonProperty(PropertyName = "key")]
+        public string Key { get; set; }
 
         /// <summary>
         /// Gets or sets the value.

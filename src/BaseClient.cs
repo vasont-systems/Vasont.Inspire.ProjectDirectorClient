@@ -7,7 +7,9 @@
 namespace Vasont.Inspire.ProjectDirectorClient
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Net;
     using System.Net.Cache;
     using System.Net.Http;
@@ -19,6 +21,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
     using Newtonsoft.Json;
     using Vasont.Inspire.Core.Errors;
     using Vasont.Inspire.Models.Common;
+    using Vasont.Inspire.ProjectDirectorClient.Extensions;
     using Vasont.Inspire.ProjectDirectorClient.Properties;
     using Vasont.Inspire.ProjectDirectorClient.Settings;
 
@@ -34,9 +37,18 @@ namespace Vasont.Inspire.ProjectDirectorClient
         /// </summary>
         private const string DelegationGrantTypeName = "delegation";
 
+        /// <summary>
+        /// The alpha numeric characters
+        /// </summary>
+        private const string AlphaNumericCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         #endregion Private Constants
 
         #region Private Fields
+
+        /// <summary>
+        /// The random generator object
+        /// </summary>
+        private static Random random = new Random();
 
         /// <summary>
         /// Contains a value indicating whether the class has been disposed.
@@ -47,6 +59,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
         /// Contains a discovery result from the authority.
         /// </summary>
         private DiscoveryDocumentResponse discovery;
+
         #endregion Private Fields
 
         #region Constructors
@@ -256,7 +269,6 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             request.Credentials = credentials;
             request.UserAgent = this.Configuration.UserAgent;
-            request.Accept = "application/json";
             request.ContentType = contentType;
 
             // Set a cache policy level for the "http:" and "https" schemes.
@@ -271,6 +283,63 @@ namespace Vasont.Inspire.ProjectDirectorClient
             }
 
             return request;
+        }
+
+        /// <summary>
+        /// Executes a request and returns true if the request was successful.
+        /// </summary>
+        /// <param name="request">Contains the HttpWebRequest to execute.</param>
+        /// <returns>Returns true if request was successful.</returns>
+        public bool RequestNoContent(HttpWebRequest request)
+        {
+            bool requestSuccess = false;
+            this.ResetErrors();
+
+            try
+            {
+                // execute the request
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    requestSuccess = (int)response.StatusCode == 200;
+                }
+            }
+            catch (WebException webEx)
+            {
+                this.LastException = webEx;
+            }
+
+            return requestSuccess;
+        }
+
+        /// <summary>
+        /// Posts a model to the request and returns no content.
+        /// </summary>
+        /// <typeparam name="T">Contains the type of the object that is to be sent with the request.</typeparam>
+        /// <param name="request">Contains the HttpWebRequest to execute.</param>
+        /// <param name="requestBodyModel">Contains the object to serialize and submit with the request.</param>
+        /// <returns>Returns true if request was successful.</returns>
+        public bool RequestNoContent<T>(HttpWebRequest request, T requestBodyModel)
+        {
+            if (requestBodyModel == null)
+            {
+                throw new ArgumentNullException(nameof(requestBodyModel));
+            }
+
+            // check to ensure we're not trying to post data on a GET or other non-body request.
+            if (request.Method != HttpMethod.Post.Method && request.Method != HttpMethod.Put.Method && request.Method != HttpMethod.Delete.Method)
+            {
+                throw new HttpRequestException(Resources.InvalidRequestTypeErrorText);
+            }
+
+            byte[] requestData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(requestBodyModel));
+
+            // write data out to the request stream
+            using (var postStream = request.GetRequestStream())
+            {
+                postStream.Write(requestData, 0, requestData.Length);
+            }
+
+            return this.RequestNoContent(request);
         }
 
         /// <summary>
@@ -312,10 +381,9 @@ namespace Vasont.Inspire.ProjectDirectorClient
         /// <returns>Returns a <see cref="byte[]"/> representation of the requested content</returns>
         public byte[] RequestContentStream(HttpWebRequest request)
         {
-            UTF8Encoding utf8 = new UTF8Encoding(true, true);
-            string content = this.RequestContent(request);
+            byte[] returnBytes = this.RequestStream(request);
 
-            return !string.IsNullOrWhiteSpace(content) && !this.HasError ? utf8.GetBytes(content) : default(byte[]);
+            return returnBytes != null && returnBytes.Length > 0 && !this.HasError ? returnBytes : default(byte[]);
         }
 
         /// <summary>
@@ -327,10 +395,9 @@ namespace Vasont.Inspire.ProjectDirectorClient
         /// <returns>Returns a <see cref="byte[]"/> representation of the requested content.</returns>
         public byte[] RequestContentStream<T>(HttpWebRequest request, T requestBodyModel)
         {
-            UTF8Encoding utf8 = new UTF8Encoding(true, true);
-            string content = this.RequestContent(request, requestBodyModel);
+            byte[] returnBytes = this.RequestStream(request, requestBodyModel);
 
-            return !string.IsNullOrWhiteSpace(content) && !this.HasError ? utf8.GetBytes(content) : default(byte[]);
+            return returnBytes != null && returnBytes.Length > 0 && !this.HasError ? returnBytes : default(byte[]);
         }
 
         /// <summary>
@@ -424,7 +491,17 @@ namespace Vasont.Inspire.ProjectDirectorClient
                                     if ((int)exceptionResponse.StatusCode >= 400 && !string.IsNullOrWhiteSpace(resultContent))
                                     {
                                         // set the error model
-                                        this.LastErrorResponse = JsonConvert.DeserializeObject<ErrorResponseModel>(resultContent);
+                                        var lastErrorResponse = new ErrorResponseModel();
+                                        lastErrorResponse.Messages.Add(new ErrorModel
+                                        {
+                                            Message = resultContent,
+                                            StackTrace = webEx.StackTrace,
+                                            EventDate = DateTime.UtcNow,
+                                            ErrorType = ErrorType.Critical,
+                                            PropertyName = "HttpWebResponse"
+                                        });
+
+                                        this.LastErrorResponse = lastErrorResponse;
                                     }
                                 }
                             }
@@ -451,6 +528,140 @@ namespace Vasont.Inspire.ProjectDirectorClient
             return resultContent;
         }
 
+        /// <summary>
+        /// Requests the stream.
+        /// </summary>
+        /// <param name="request">The request.</param>
+        /// <returns>
+        /// Returns the Byte Array of the Requested Stream.
+        /// </returns>
+        public byte[] RequestStream(HttpWebRequest request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            byte[] resultStream = { };
+            this.ResetErrors();
+
+            try
+            {
+                // execute the request
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    using (var responseStream = response.GetResponseStream())
+                    {
+                        if (responseStream != null)
+                        {
+                            resultStream = responseStream.ReadAllBytes();
+
+                            // if the status code was an error and there's content...
+                            if ((int)response.StatusCode >= 400 && resultStream.Length >= 0)
+                            {
+                                var resultContent = new StreamReader(responseStream).ReadToEnd();
+
+                                // set the error model
+                                this.LastErrorResponse = JsonConvert.DeserializeObject<ErrorResponseModel>(resultContent);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (WebException webEx)
+            {
+                this.LastException = webEx;
+
+                if (webEx.Response != null)
+                {
+                    using (var exceptionResponse = (HttpWebResponse)webEx.Response)
+                    {
+                        if (exceptionResponse != null)
+                        {
+                            using (var responseStream = exceptionResponse.GetResponseStream())
+                            {
+                                if (responseStream != null)
+                                {
+                                    var resultContent = new StreamReader(responseStream).ReadToEnd();
+
+                                    // if the status code was an error and there's content...
+                                    if ((int)exceptionResponse.StatusCode >= 400 && !string.IsNullOrWhiteSpace(resultContent))
+                                    {
+                                        // set the error model
+                                        var lastErrorResponse = new ErrorResponseModel();
+                                        lastErrorResponse.Messages.Add(new ErrorModel
+                                        {
+                                            Message = resultContent,
+                                            StackTrace = webEx.StackTrace,
+                                            EventDate = DateTime.UtcNow,
+                                            ErrorType = ErrorType.Critical,
+                                            PropertyName = "HttpWebResponse"
+                                        });
+
+                                        this.LastErrorResponse = lastErrorResponse;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (this.LastErrorResponse == null)
+                {
+                    var lastErrorResponse = new ErrorResponseModel();
+                    lastErrorResponse.Messages.Add(new ErrorModel
+                    {
+                        Message = webEx.Message,
+                        StackTrace = webEx.StackTrace,
+                        EventDate = DateTime.UtcNow,
+                        ErrorType = ErrorType.Critical,
+                        PropertyName = "HttpWebResponse"
+                    });
+
+                    this.LastErrorResponse = lastErrorResponse;
+                }
+            }
+
+            return resultStream;
+        }
+
+        /// <summary>
+        /// Requests the stream.
+        /// </summary>
+        /// <typeparam name="T">Contains the type of the object that is to be sent with the request.</typeparam>
+        /// <param name="request">The request.</param>
+        /// <param name="requestBodyModel">Contains the object to serialize and submit with the request.</param>
+        /// <returns>
+        /// Returns the Byte Array of the Requested Stream.
+        /// </returns>
+        public byte[] RequestStream<T>(HttpWebRequest request, T requestBodyModel)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (requestBodyModel == null)
+            {
+                throw new ArgumentNullException(nameof(requestBodyModel));
+            }
+
+            // check to ensure we're not trying to post data on a GET or other non-body request.
+            if (request.Method != HttpMethod.Post.Method && request.Method != HttpMethod.Put.Method && request.Method != HttpMethod.Delete.Method)
+            {
+                throw new HttpRequestException(Resources.InvalidRequestTypeErrorText);
+            }
+
+            byte[] requestData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(requestBodyModel));
+
+            // write data out to the request stream
+            using (var postStream = request.GetRequestStream())
+            {
+                postStream.Write(requestData, 0, requestData.Length);
+            }
+
+            return this.RequestStream(request);
+        }
         #endregion Public Methods
 
         #region IDispose Methods
@@ -630,6 +841,25 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             return result;
         }
+
+        /// <summary>
+        /// Retrieves the route prefix.
+        /// </summary>
+        /// <returns>Returns the value of Route Prefix including forward slash if one exists.</returns>
+        protected string RetrieveRoutePrefix()
+        {
+            return !string.IsNullOrWhiteSpace(this.Configuration.RoutePrefix) ? $"/{this.Configuration.RoutePrefix}" : string.Empty;
+        }
+
+        /// <summary>
+        /// Generates the random alpha numeric string.
+        /// </summary>
+        /// <param name="length">Contains the length of the Alpha Numeric string to generate.</param>
+        /// <returns>Returns a string containing Random Alpha Numeric characters.</returns>
+        protected string GenerateRandomAlphaNumeric(int length)
+        {
+            return new string(Enumerable.Range(1, length).Select(a => AlphaNumericCharacters[random.Next(AlphaNumericCharacters.Length)]).ToArray());
+        }
         #endregion Protected Methods
 
         #region Private Methods
@@ -642,7 +872,6 @@ namespace Vasont.Inspire.ProjectDirectorClient
             this.ResetErrors();
             this.AuthorizationToken = (string.Empty, DateTime.MinValue);
         }
-
         #endregion Private Methods
     }
 }

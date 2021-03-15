@@ -9,9 +9,12 @@ namespace Vasont.Inspire.ProjectDirectorClient
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Net.Http;
+    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Newtonsoft.Json;
     using Vasont.Inspire.ProjectDirectorClient.Extensions;
     using Vasont.Inspire.ProjectDirectorClient.Models;
     using Vasont.Inspire.ProjectDirectorClient.Settings;
@@ -30,6 +33,11 @@ namespace Vasont.Inspire.ProjectDirectorClient
         public ProjectDirectorClient(ProjectDirectorConfigurationModel authenticationSettings)
             : base(authenticationSettings)
         {
+            JsonConvert.DefaultSettings = () => new JsonSerializerSettings
+            {
+                Formatting = Formatting.Indented,
+                NullValueHandling = NullValueHandling.Ignore
+            };
         }
 
         #region Projects
@@ -49,7 +57,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/projects?pageSize={pageSize}&orderBy={orderBy} ");
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/projects?pageSize={pageSize}&orderBy={orderBy} ");
                 returnValue = this.RequestContent<List<ProjectMicroModel>>(request);
             }
 
@@ -62,22 +70,22 @@ namespace Vasont.Inspire.ProjectDirectorClient
         /// <param name="projectId">The project identifier.</param>
         /// <param name="cancellationToken">Contains the cancellation token.</param>
         /// <returns>
-        /// Returns a <see cref="ProjectMicroModel" /> object.
+        /// Returns a <see cref="ProjectModel" /> object.
         /// </returns>
         /// <exception cref="ArgumentNullException">Exception thrown when the projectId parameter is less than or equal to zero.</exception>
-        public async Task<ProjectMicroModel> FindProjectByIdAsync(long projectId, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<ProjectModel> FindProjectByIdAsync(long projectId, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (projectId <= 0)
             {
                 throw new ArgumentNullException(nameof(projectId));
             }
 
-            ProjectMicroModel returnValue = null;
+            ProjectModel returnValue = null;
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/project/{projectId}");
-                returnValue = this.RequestContent<ProjectMicroModel>(request);
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/projects/{projectId}");
+                returnValue = this.RequestContent<ProjectModel>(request);
             }
 
             return returnValue;
@@ -103,7 +111,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/projects?projectName={projectNameFilter} ");
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/projects?projectName={projectNameFilter} ");
                 returnValue = this.RequestContent<List<ProjectMicroModel>>(request);
             }
 
@@ -128,7 +136,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/paclients?pageSize={pageSize}&orderBy={orderBy} ");
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/paclients?pageSize={pageSize}&orderBy={orderBy} ");
                 returnValue = this.RequestContent<List<ProjectAClientModel>>(request);
             }
 
@@ -155,7 +163,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/paclients?projectAClientName={projectAClientName} ");
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/paclients?projectAClientName={projectAClientName} ");
                 returnValue = this.RequestContent<List<ProjectAClientModel>>(request);
             }
 
@@ -169,19 +177,19 @@ namespace Vasont.Inspire.ProjectDirectorClient
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>Returns a <see cref="List{CustomAttributeModel}"/> objects.</returns>
         /// <exception cref="ArgumentNullException">Exception thrown when the projectId parameter is less than or equal to zero.</exception>
-        public async Task<List<CustomAttributeModel>> RetrieveCustomAttributesAsync(long projectId, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<List<CustomAttributeDefinitionModel>> RetrieveCustomAttributesAsync(long projectId, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (projectId <= 0)
             {
                 throw new ArgumentNullException(nameof(projectId));
             }
 
-            List<CustomAttributeModel> returnValue = null;
+            List<CustomAttributeDefinitionModel> returnValue = null;
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/project/{projectId}/customattributes");
-                returnValue = this.RequestContent<List<CustomAttributeModel>>(request);
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/project/{projectId}/customattributes");
+                returnValue = this.RequestContent<List<CustomAttributeDefinitionModel>>(request);
             }
 
             return returnValue;
@@ -205,7 +213,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/project/{projectId}/users/org");
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/project/{projectId}/users/org");
                 returnValue = this.RequestContent<List<OrganizationUserModel>>(request);
             }
 
@@ -232,7 +240,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/submissions/create", HttpMethod.Post);
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/create", HttpMethod.Post);
                 returnValue = this.RequestContent<CreateSubmissionRequestModel, CreateSubmissionResponseModel>(request, requestModel);
             }
 
@@ -265,17 +273,19 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                string boundary = "InspireFormBoundary";
+                string boundary = $"InspireFormBoundary{this.GenerateRandomAlphaNumeric(8)}";
 
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/submissions/{requestModel.SubmissionId}/upload/source", HttpMethod.Post, contentType: "multipart/form-data; boundary=" + boundary);
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{requestModel.SubmissionId}/upload/source", HttpMethod.Post, contentType: "multipart/form-data; boundary=--" + boundary);
 
                 // write data out to the request stream
                 using (var postStream = request.GetRequestStream())
                 {
-                    postStream.WriteMultiPartFormData(requestModel, boundary);
+                    postStream.WriteMultiPartFormData(requestModel, boundary, Encoding.UTF8);
                 }
 
-                returnValue = this.RequestContent<FileUploadRequestModel, FileUploadResponseModel>(request, requestModel);
+                request.Headers["Connection"] = "keep-alive";
+
+                returnValue = this.RequestContent<FileUploadResponseModel>(request);
             }
 
             return returnValue;
@@ -307,9 +317,9 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                string boundary = "InspireFormBoundary";
+                string boundary = "WebKitFormBoundary7MA4YWxkTrZu0gW";
 
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/submissions/{requestModel.SubmissionId}/upload/reference ", HttpMethod.Post, contentType: "multipart/form-data; boundary=" + boundary);
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{requestModel.SubmissionId}/upload/reference ", HttpMethod.Post, contentType: "multipart/form-data; boundary=--" + boundary);
 
                 // write data out to the request stream
                 using (var postStream = request.GetRequestStream())
@@ -341,7 +351,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/submissions/{submissionId}/status");
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{submissionId}/status");
                 returnValue = this.RequestContent<SubmissionStatusModel>(request);
             }
 
@@ -374,7 +384,7 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/submissions/{submissionId}/save", HttpMethod.Post);
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{submissionId}/save", HttpMethod.Post);
                 returnValue = this.RequestContent<SaveSubmissionRequestModel, SaveSubmissionResponseModel>(request, requestModel);
             }
 
@@ -403,12 +413,219 @@ namespace Vasont.Inspire.ProjectDirectorClient
 
             if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
             {
-                var request = this.CreateRequest($"{this.Configuration.RoutePrefix}/submissions/{submissionId}/start", HttpMethod.Post);
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{submissionId}/start", HttpMethod.Post);
                 returnValue = this.RequestContent<SubmissionStatusModel>(request);
             }
 
             return returnValue;
         }
+
+        /// <summary>
+        /// Retrieves the word count.
+        /// </summary>
+        /// <param name="submissionId">The submission identifier.</param>
+        /// <param name="model">The model.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns the <see cref="WordCountResponseModel"/> object.</returns>
+        /// <exception cref="ArgumentNullException">Exception thrown when the submissionId parameter is less than or equal to zero.</exception>
+        public async Task<WordCountResponseModel> RetrieveWordCountAsync(long submissionId, WordCountRequestModel model, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (submissionId <= 0)
+            {
+                throw new ArgumentNullException(nameof(submissionId));
+            }
+
+            WordCountResponseModel returnValue = null;
+
+            if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{submissionId}/wordcount", HttpMethod.Post);
+                
+                if (!string.IsNullOrWhiteSpace(model.BatchName) || 
+                    model.TargetId > 0 || 
+                    !string.IsNullOrWhiteSpace(model.TargetLanguage) ||
+                    model.DocumentId > 0)
+                { 
+                    returnValue = this.RequestContent<WordCountRequestModel, WordCountResponseModel>(request, model);
+                }
+                else
+                {
+                    returnValue = this.RequestContent<WordCountResponseModel>(request);
+                }
+            }
+
+            return returnValue;
+        }
+
+        /// <summary>
+        /// Analyzes the submission.
+        /// </summary>
+        /// <param name="submissionId">The submission identifier.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns true is the Analyze Submission request was successful.</returns>
+        /// <exception cref="ArgumentNullException">Exception thrown when the submissionId parameter is less than or equal to zero.</exception>
+        public async Task<bool> AnalyzeSubmissionAsync(long submissionId, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (submissionId <= 0)
+            {
+                throw new ArgumentNullException(nameof(submissionId));
+            }
+
+            bool submissionAnalyzed = false;
+
+            if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{submissionId}/analyze", HttpMethod.Post);
+                submissionAnalyzed = this.RequestNoContent(request);
+            }
+
+            return submissionAnalyzed;
+        }
         #endregion Submission
+
+        #region Retrieval
+        /// <summary>
+        /// Requests the completed targets.
+        /// </summary>
+        /// <param name="submissionIds">The submission ids.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns a <see cref="List{RetrieveCompletedTargetsRequestModelT}}"/> objects.</returns>
+        /// <exception cref="ArgumentNullException">Exception thrown when the submissionIds parameter is null or empty.</exception>
+        public async Task<List<RetrieveCompletedTargetsRequestModel>> RetrieveCompletedTargetsAsync(List<long> submissionIds, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (submissionIds == null || !submissionIds.Any())
+            {
+                throw new ArgumentNullException(nameof(submissionIds));
+            }
+
+            List<RetrieveCompletedTargetsRequestModel> returnValue = null;
+
+            if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/targets?targetStatus=PROCESSED&submissionIds={string.Join(",", submissionIds)}");
+                returnValue = this.RequestContent<List<RetrieveCompletedTargetsRequestModel>>(request);
+            }
+
+            return returnValue;
+        }
+
+        /// <summary>
+        /// Requests the download targets.
+        /// </summary>
+        /// <param name="submissionId">The submission identifier.</param>
+        /// <param name="targetIds">The target ids.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns the <see cref="RequestDownloadTargetsResponseModel"/> object.</returns>
+        /// <exception cref="ArgumentNullException">Exception thrown when the submissionId parameter is less than or equal to zero or the targetIds list is null or empty.</exception>
+        public async Task<RequestDownloadTargetsResponseModel> RequestDownloadTargetsAsync(long submissionId, List<long> targetIds, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (submissionId <= 0)
+            {
+                throw new ArgumentNullException(nameof(submissionId));
+            }
+
+            if (targetIds == null || !targetIds.Any())
+            {
+                throw new ArgumentNullException(nameof(targetIds));
+            }
+
+            RequestDownloadTargetsResponseModel returnValue = null;
+
+            if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{submissionId}/download?deliverableTargetIds={string.Join(",", targetIds)}");
+                returnValue = this.RequestContent<RequestDownloadTargetsResponseModel>(request);
+            }
+
+            return returnValue;
+        }
+
+        /// <summary>
+        /// Requests the download status.
+        /// </summary>
+        /// <param name="submissionId">The submission identifier.</param>
+        /// <param name="downloadId">The download identifier.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns the <see cref="RequestDownloadTargetsResponseModel"/> object.</returns>
+        /// <exception cref="ArgumentNullException">Exception thrown when the submissionId parameter is less than or equal to zero or the downloadId is null or empty.</exception>
+        public async Task<RequestDownloadTargetsResponseModel> RequestDownloadStatusAsync(long submissionId, Guid downloadId, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (submissionId <= 0)
+            {
+                throw new ArgumentNullException(nameof(submissionId));
+            }
+
+            if (downloadId == null || downloadId.Equals(Guid.Empty))
+            {
+                throw new ArgumentNullException(nameof(downloadId));
+            }
+
+            RequestDownloadTargetsResponseModel returnValue = null;
+
+            if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{submissionId}/download?downloadId={downloadId}");
+                returnValue = this.RequestContent<RequestDownloadTargetsResponseModel>(request);
+            }
+
+            return returnValue;
+        }
+
+        /// <summary>
+        /// Downloads the file.
+        /// </summary>
+        /// <param name="downloadId">The download identifier.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns the byte array containing the requested File.</returns>
+        /// <exception cref="ArgumentNullException">Exception thrown when the downloadId is null or empty.</exception>
+        public async Task<byte[]> DownloadFileAsync(Guid downloadId, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (downloadId == null || downloadId.Equals(Guid.Empty))
+            {
+                throw new ArgumentNullException(nameof(downloadId));
+            }
+
+            byte[] returnValue = null;
+
+            if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/download/{downloadId}");
+                returnValue = this.RequestContentStream(request);
+            }
+
+            return returnValue;
+        }
+
+        /// <summary>
+        /// Marks the targets delivered asynchronous.
+        /// </summary>
+        /// <param name="submissionId">The submission identifier.</param>
+        /// <param name="model">The model.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>Returns true is the targets were marked as delivered.</returns>
+        /// <exception cref="ArgumentNullException">Exception thrown when the submissionId parameter is less than or equal to zero or the model is null or empty.</exception>
+        public async Task<bool> MarkTargetsDeliveredAsync(long submissionId, MarkTargetsDeliveredModel model, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (submissionId <= 0)
+            {
+                throw new ArgumentNullException(nameof(submissionId));
+            }
+
+            if (model == null || !model.TargetIds.Any())
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            bool returnValue = false;
+
+            if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/submissions/{submissionId}/targets/delivered", HttpMethod.Post);
+                returnValue = this.RequestNoContent<MarkTargetsDeliveredModel>(request, model);
+            }
+
+            return returnValue;
+        }
+        #endregion Retrieval
     }
 }

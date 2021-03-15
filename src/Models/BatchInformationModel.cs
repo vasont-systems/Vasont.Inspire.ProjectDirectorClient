@@ -7,10 +7,13 @@
 namespace Vasont.Inspire.ProjectDirectorClient.Models
 {
     using System.Collections.Generic;
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Converters;
 
     /// <summary>
     /// This enumeration is used for the Target Format of the Batch
     /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
     public enum TargetFormat
     {
         /// <summary>
@@ -49,6 +52,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The name.
         /// </value>
+        [JsonProperty(PropertyName = "name")]
         public string Name { get; set; }
 
         /// <summary>
@@ -57,6 +61,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The target format.
         /// </value>
+        [JsonProperty(PropertyName = "targetFormat")]
         public TargetFormat TargetFormat { get; set; }
 
         /// <summary>
@@ -65,6 +70,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The target language info.
         /// </value>
+        [JsonProperty(PropertyName = "targetLanguageInfos")]
         public List<TargetLanguageInformationModel> TargetLanguageInfos { get; set; }
 
         /// <summary>
@@ -73,6 +79,7 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The workflow identifier.
         /// </value>
+        [JsonProperty(PropertyName = "workflowId")]
         public long WorkflowId { get; set; }
     }
 }
