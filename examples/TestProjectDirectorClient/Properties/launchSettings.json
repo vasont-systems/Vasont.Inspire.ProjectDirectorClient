@@ -1,7 +1,8 @@
 {
   "profiles": {
     "TestProjectDirectorClient": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "/resourceUrl \"https://qa-tdc14.translations.com/PD\" /authorityUri \"https://qa-tdc14.translations.com/PD/oauth/token\" /routePrefix \"rest/v0\" /userName \"vasont_pm_user\" /password \"password1!\" /clientSecret \"oauth2WsPassword\" /clientId \"oauth2WsClient\" /clientScopes \"\" /grantType \"password\" /action \"requestdownloadtargets\" -subId 2081 -ids \"4410\" -folderPath \"E:\\Temp\\PDRestApi\""
     }
   }
 }
