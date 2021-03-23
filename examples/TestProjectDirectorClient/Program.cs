@@ -106,6 +106,8 @@ namespace TestProjectDirectorClient
 
                             case "createsubmission":
                                 {
+                                    SubmissionResponseModel responseModel = new SubmissionResponseModel();
+
                                     var projects = AsyncHelper.RunSync(() => projectDirectorClient.RetrieveProjectsAsync());
 
                                     if (projects != null)
@@ -128,6 +130,7 @@ namespace TestProjectDirectorClient
                                         var languageInfoModels = new List<TargetLanguageInformationModel>();
                                         var batchInfoModels = new List<BatchInformationModel>();
                                         var projectInfo = AsyncHelper.RunSync(() => projectDirectorClient.FindProjectByIdAsync(project.ProjectId));
+                                        responseModel.ProjectResponse = projectInfo;
 
                                         // Get the first Language to use
                                         var languageDirection = projectInfo.ProjectLanguageDirections.FirstOrDefault();
@@ -204,12 +207,13 @@ namespace TestProjectDirectorClient
                                         string requestModelValue = JsonConvert.SerializeObject(requestModel);
                                         Console.WriteLine($"Calling Create Submission with the following request: {Environment.NewLine} {requestModelValue}");
 
-                                        var responseModel = AsyncHelper.RunSync(() => projectDirectorClient.CreateSubmissionAsync(requestModel));
+                                        var createSubmissionresponseModel = AsyncHelper.RunSync(() => projectDirectorClient.CreateSubmissionAsync(requestModel));
+                                        responseModel.CreateSubmissionResponse = createSubmissionresponseModel;
 
-                                        if (responseModel != null && responseModel is CreateSubmissionResponseModel && responseModel.SubmissionId > 0)
+                                        if (createSubmissionresponseModel != null && createSubmissionresponseModel is CreateSubmissionResponseModel && createSubmissionresponseModel.SubmissionId > 0)
                                         {
                                             // Success
-                                            Console.WriteLine($"Successfully created empty submission with id: {responseModel.SubmissionId}.");
+                                            Console.WriteLine($"Successfully created empty submission with id: {createSubmissionresponseModel.SubmissionId}.");
 
                                             // Upload Files to submission
                                             string parsableFilePath = @"C:\Users\sduffy\Downloads\LanguageManagement.xml";
@@ -218,7 +222,7 @@ namespace TestProjectDirectorClient
 
                                             var parsableFileUploadRequestModel = new FileUploadRequestModel
                                             {
-                                                SubmissionId = responseModel.SubmissionId,
+                                                SubmissionId = createSubmissionresponseModel.SubmissionId,
                                                 FilePath = parsableFilePath,
                                                 BatchName = parsableBatchInformationModel.Name,
                                                 FileFormatName = fileFormatName,
@@ -231,14 +235,15 @@ namespace TestProjectDirectorClient
                                             Console.WriteLine($"Calling Upload File with the following request: {Environment.NewLine} {parsableFileUploadRequestModelValue}");
 
                                             var parsableFileUploadResponseModel = AsyncHelper.RunSync(() => projectDirectorClient.UploadFileAsync(parsableFileUploadRequestModel));
+                                            responseModel.FileUploadResponses.Add(parsableFileUploadResponseModel);
 
                                             if (parsableFileUploadResponseModel != null && parsableFileUploadResponseModel.ProcessId != null)
                                             {
-                                                Console.WriteLine($"Uploaded parsable file \"{parsableFilePath}\" for submission with id: {responseModel.SubmissionId}.");
+                                                Console.WriteLine($"Uploaded parsable file \"{parsableFilePath}\" for submission with id: {createSubmissionresponseModel.SubmissionId}.");
                                             }
                                             else
                                             {
-                                                Console.WriteLine($"Failed to upload file \"{parsableFilePath}\" for submission with id: {responseModel.SubmissionId}.");
+                                                Console.WriteLine($"Failed to upload file \"{parsableFilePath}\" for submission with id: {createSubmissionresponseModel.SubmissionId}.");
 
                                                 WriteLastErrorMessages(projectDirectorClient);
                                             }
@@ -248,15 +253,16 @@ namespace TestProjectDirectorClient
                                             string saveSubmissionRequestValue = JsonConvert.SerializeObject(saveSubmissionRequest);
                                             Console.WriteLine($"Calling Save Submission with the following request: {Environment.NewLine} {saveSubmissionRequestValue}");
                                             
-                                            var saveSubmissionResponse = AsyncHelper.RunSync(() => projectDirectorClient.SaveSubmissionAsync(responseModel.SubmissionId, saveSubmissionRequest));
+                                            var saveSubmissionResponse = AsyncHelper.RunSync(() => projectDirectorClient.SaveSubmissionAsync(createSubmissionresponseModel.SubmissionId, saveSubmissionRequest));
+                                            responseModel.SaveSubmissionResponse = saveSubmissionResponse;
 
                                             if (saveSubmissionResponse != null)
                                             {
-                                                Console.WriteLine($"Saved submission with id: {responseModel.SubmissionId}.{Environment.NewLine}Message: {saveSubmissionResponse.Message} {Environment.NewLine} Linked Submission Ids: {string.Join(',', saveSubmissionResponse.LinkedSubmissionIds)} {Environment.NewLine} Started Submission Ids: {string.Join(',', saveSubmissionResponse.StartedSubmissionIds)} {Environment.NewLine}");
+                                                Console.WriteLine($"Saved submission with id: {createSubmissionresponseModel.SubmissionId}.{Environment.NewLine}Message: {saveSubmissionResponse.Message} {Environment.NewLine} Linked Submission Ids: {string.Join(',', saveSubmissionResponse.LinkedSubmissionIds)} {Environment.NewLine} Started Submission Ids: {string.Join(',', saveSubmissionResponse.StartedSubmissionIds)} {Environment.NewLine}");
                                             }
                                             else
                                             {
-                                                Console.WriteLine($"Failed to save submission with id: {responseModel.SubmissionId}.");
+                                                Console.WriteLine($"Failed to save submission with id: {createSubmissionresponseModel.SubmissionId}.");
 
                                                 WriteLastErrorMessages(projectDirectorClient);
                                             }
@@ -266,18 +272,21 @@ namespace TestProjectDirectorClient
                                             string wordCountRequestModelValue = JsonConvert.SerializeObject(wordCountRequestModel);
                                             Console.WriteLine($"Calling Retrieve Word Count with the following request: {Environment.NewLine} {wordCountRequestModelValue}");
                                             
-                                            var fullWordCountResponseModel = AsyncHelper.RunSync(() => projectDirectorClient.RetrieveWordCountAsync(responseModel.SubmissionId, wordCountRequestModel));
+                                            var fullWordCountResponseModel = AsyncHelper.RunSync(() => projectDirectorClient.RetrieveWordCountAsync(createSubmissionresponseModel.SubmissionId, wordCountRequestModel));
 
                                             if (fullWordCountResponseModel != null)
                                             {
-                                                Console.WriteLine($"Full word count: {fullWordCountResponseModel.TotalWordCount} for submission with id: {responseModel.SubmissionId}.");
+                                                Console.WriteLine($"Full word count: {fullWordCountResponseModel.TotalWordCount} for submission with id: {createSubmissionresponseModel.SubmissionId}.");
                                             }
                                             else
                                             {
-                                                Console.WriteLine($"Failed to get full word count for submission with id: {responseModel.SubmissionId}.");
+                                                Console.WriteLine($"Failed to get full word count for submission with id: {createSubmissionresponseModel.SubmissionId}.");
 
                                                 WriteLastErrorMessages(projectDirectorClient);
                                             }
+
+                                            string responseModelValue = JsonConvert.SerializeObject(responseModel);
+                                            Console.WriteLine($"Submission Response Model: {responseModelValue}");
                                         }
                                         else
                                         {
