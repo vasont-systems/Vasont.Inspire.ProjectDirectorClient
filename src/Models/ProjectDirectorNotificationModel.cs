@@ -40,12 +40,12 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         public long SubmissionId { get; set; }
 
         /// <summary>
-        /// Gets or sets the event time.
+        /// Gets or sets the epoch value representing the event time.
         /// </summary>
         /// <value>
-        /// The event time.
+        /// The epoch value representing the event time.
         /// </value>
-        public DateTime EventTime { get; set; }
+        public long? EventTime { get; set; }
 
         /// <summary>
         /// Gets or sets the document ids.
