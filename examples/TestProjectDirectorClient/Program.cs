@@ -39,6 +39,10 @@ namespace TestProjectDirectorClient
             string userName = CommandLine.Parameters.ContainsKey("userName") ? CommandLine.Parameters["userName"].ConvertToString() : string.Empty;
             string password = CommandLine.Parameters.ContainsKey("password") ? CommandLine.Parameters["password"].ConvertToString() : string.Empty;
 
+            string webHookUrl = CommandLine.Parameters.ContainsKey("webHookUrl") ? CommandLine.Parameters["webHookUrl"].ConvertToString() : string.Empty;
+            string webHookUserName = CommandLine.Parameters.ContainsKey("webHookUserName") ? CommandLine.Parameters["webHookUserName"].ConvertToString() : string.Empty;
+            string webHookPassword = CommandLine.Parameters.ContainsKey("webHookPassword") ? CommandLine.Parameters["webHookPassword"].ConvertToString() : string.Empty;
+
             string clientSecret = CommandLine.Parameters.ContainsKey("clientSecret") ? CommandLine.Parameters["clientSecret"].ConvertToString() : string.Empty;
             string clientId = CommandLine.Parameters.ContainsKey("clientId") ? CommandLine.Parameters["clientId"].ConvertToString() : string.Empty;
 
@@ -71,6 +75,9 @@ namespace TestProjectDirectorClient
                     AuthenticationMethod = ClientAuthenticationMethods.ResourceOwnerPassword,
                     IncludeBasicAuthenticationHeader = true
                 };
+
+                string authenticationSettingsValue = JsonConvert.SerializeObject(authenticationSettings);
+                Console.WriteLine($"ProjectDirectorConfigurationModel: {authenticationSettingsValue}");
 
                 using (var projectDirectorClient = new ProjectDirectorClient(authenticationSettings))
                 {
@@ -154,7 +161,7 @@ namespace TestProjectDirectorClient
 
                                         batchInfoModels.Add(parsableBatchInformationModel);
 
-                                        /*
+                                        /* // Uncomment to test Non-parsable or Reference files - Cannot save submission with empty batches
                                         // If there are non-parsable Files to be sent with the submisison then add a separate batch
                                         var nonParsableBatchInformationModel = new BatchInformationModel
                                         {
@@ -178,15 +185,18 @@ namespace TestProjectDirectorClient
                                         batchInfoModels.Add(referenceBatchInformationModel);
                                         */
 
-                                        // Add Webhook info to MetaData
                                         List<MetaDataModel> metaData = new List<MetaDataModel>();
-                                        metaData.Add(new MetaDataModel { Key = "_webhookURL", Value = "https://webhook.site/bd9c7e40-338e-4442-9832-0829b969bc00" });
+                                        if (!string.IsNullOrWhiteSpace(webHookUrl) && !string.IsNullOrWhiteSpace(webHookUserName) && !string.IsNullOrWhiteSpace(webHookPassword))
+                                        {
+                                            // Add Webhook info to MetaData
+                                            metaData.Add(new MetaDataModel { Key = "_webhookURL", Value = webHookUrl });
 
-                                        string[] webHookScopes = { WebHookScope.SubmissionCompleted.ToEnumMemberAttrValue(), WebHookScope.TargetCompleted.ToEnumMemberAttrValue(), WebHookScope.SubmissionCancelled.ToEnumMemberAttrValue(), WebHookScope.TargetCancelled.ToEnumMemberAttrValue() };
-                                        metaData.Add(new MetaDataModel { Key = "_webhookScope", Value = string.Join(",", webHookScopes) });
+                                            string[] webHookScopes = { WebHookScope.SubmissionCompleted.ToEnumMemberAttrValue(), WebHookScope.TargetCompleted.ToEnumMemberAttrValue(), WebHookScope.SubmissionCancelled.ToEnumMemberAttrValue(), WebHookScope.TargetCancelled.ToEnumMemberAttrValue() };
+                                            metaData.Add(new MetaDataModel { Key = "_webhookScope", Value = string.Join(",", webHookScopes) });
 
-                                        metaData.Add(new MetaDataModel { Key = "_webhookBasicAuthUser", Value = userName });
-                                        metaData.Add(new MetaDataModel { Key = "_webhookBasicAuthPass", Value = password });
+                                            metaData.Add(new MetaDataModel { Key = "_webhookBasicAuthUser", Value = webHookUserName });
+                                            metaData.Add(new MetaDataModel { Key = "_webhookBasicAuthPass", Value = webHookPassword });
+                                        }
 
                                         List<CustomAttributeModel> customAttributes = new List<CustomAttributeModel>();
                                         customAttributes.Add(new CustomAttributeModel { Name = "Test Custom Attribute", Value = "Some value." });
@@ -200,7 +210,7 @@ namespace TestProjectDirectorClient
                                             BatchInfos = batchInfoModels,
                                             ClaimScope = SubmissionClaimScope.LANGUAGE,
                                             PaClientId = projectAClientId,
-                                            MetaData = metaData,
+                                            MetaData = metaData.Any() ? metaData : null,
                                             CustomAttributes = customAttributes
                                         };
 
@@ -215,37 +225,56 @@ namespace TestProjectDirectorClient
                                             // Success
                                             Console.WriteLine($"Successfully created empty submission with id: {createSubmissionResponseModel.SubmissionId}.");
 
-                                            // Upload Files to submission
-                                            string parsableFilePath = @"C:\Users\sduffy\Downloads\LanguageManagement.xml";
-                                            FileInfo parsableFileInfo = new FileInfo(parsableFilePath);
-                                            string mimeType = MimeTypeMap.GetMimeType(parsableFileInfo.Extension);
-
-                                            var parsableFileUploadRequestModel = new FileUploadRequestModel
+                                            if (Directory.Exists(folderPath))
                                             {
-                                                SubmissionId = createSubmissionResponseModel.SubmissionId,
-                                                FilePath = parsableFilePath,
-                                                BatchName = parsableBatchInformationModel.Name,
-                                                FileFormatName = fileFormatName,
-                                                ContentType = mimeType,
-                                                ExtractArchive = false,
-                                                NonParsable = false,
-                                                ReferenceFile = false
-                                            };
-                                            string parsableFileUploadRequestModelValue = JsonConvert.SerializeObject(parsableFileUploadRequestModel);
-                                            Console.WriteLine($"Calling Upload File with the following request: {Environment.NewLine} {parsableFileUploadRequestModelValue}");
+                                                var files = Directory.GetFiles(folderPath).ToList();
 
-                                            var parsableFileUploadResponseModel = AsyncHelper.RunSync(() => projectDirectorClient.UploadFileAsync(parsableFileUploadRequestModel));
-                                            responseModel.FileUploadResponses.Add(parsableFileUploadResponseModel);
+                                                if (files.Any())
+                                                {
+                                                    files.ForEach(filePath =>
+                                                    {
+                                                        // Upload Files to submission
+                                                        FileInfo parsableFileInfo = new FileInfo(filePath);
+                                                        string mimeType = MimeTypeMap.GetMimeType(parsableFileInfo.Extension);
 
-                                            if (parsableFileUploadResponseModel != null && parsableFileUploadResponseModel.ProcessId != null)
-                                            {
-                                                Console.WriteLine($"Uploaded parsable file \"{parsableFilePath}\" for submission with id: {createSubmissionResponseModel.SubmissionId}.");
+                                                        var parsableFileUploadRequestModel = new FileUploadRequestModel
+                                                        {
+                                                            SubmissionId = createSubmissionResponseModel.SubmissionId,
+                                                            FilePath = filePath,
+                                                            BatchName = parsableBatchInformationModel.Name,
+                                                            FileFormatName = fileFormatName,
+                                                            ContentType = mimeType,
+                                                            ExtractArchive = false,
+                                                            NonParsable = false,
+                                                            ReferenceFile = false
+                                                        };
+                                                        string parsableFileUploadRequestModelValue = JsonConvert.SerializeObject(parsableFileUploadRequestModel);
+                                                        Console.WriteLine($"Calling Upload File with the following request: {Environment.NewLine} {parsableFileUploadRequestModelValue}");
+
+                                                        var parsableFileUploadResponseModel = AsyncHelper.RunSync(() => projectDirectorClient.UploadFileAsync(parsableFileUploadRequestModel));
+                                                        responseModel.FileUploadResponses.Add(parsableFileUploadResponseModel);
+
+                                                        if (parsableFileUploadResponseModel != null && parsableFileUploadResponseModel.ProcessId != null)
+                                                        {
+                                                            Console.WriteLine($"Uploaded parsable file \"{filePath}\" for submission with id: {createSubmissionResponseModel.SubmissionId}.");
+                                                        }
+                                                        else
+                                                        {
+                                                            Console.WriteLine($"Failed to upload file \"{filePath}\" for submission with id: {createSubmissionResponseModel.SubmissionId}.");
+
+                                                            WriteLastErrorMessages(projectDirectorClient);
+                                                        }
+                                                    });
+                                                }
+                                                else
+                                                {
+                                                    Console.WriteLine($"No files found in directory \"{folderPath}\".");
+                                                }
                                             }
                                             else
                                             {
-                                                Console.WriteLine($"Failed to upload file \"{parsableFilePath}\" for submission with id: {createSubmissionResponseModel.SubmissionId}.");
+                                                Console.WriteLine($"Cannot upload files for submission. Directory does not exist \"{folderPath}\".");
 
-                                                WriteLastErrorMessages(projectDirectorClient);
                                             }
 
                                             // Save Submission
