@@ -171,6 +171,31 @@ namespace Vasont.Inspire.ProjectDirectorClient
         }
 
         /// <summary>
+        /// This method finds the project a clients by identifier asynchronous.
+        /// </summary>
+        /// <param name="projectAClientId">Contains the Project A Client identifier.</param>
+        /// <param name="cancellationToken">Contains the cancellation token.</param>
+        /// <returns>Returns the <see cref="List{ProjectAClientModel}}" /> object.</returns>
+        /// <exception cref="ArgumentNullException">An exception is thrown if the "projectAClientId" parameter is less than or equal to zero. /></exception>
+        public async Task<ProjectAClientModel> FindProjectAClientsByIdAsync(long projectAClientId, CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (projectAClientId <= 0)
+            {
+                throw new ArgumentNullException(nameof(projectAClientId));
+            }
+
+            ProjectAClientModel returnValue = null;
+
+            if (await this.AuthenticateAsync(string.Empty, cancellationToken).ConfigureAwait(false))
+            {
+                var request = this.CreateRequest($"{this.RetrieveRoutePrefix()}/paclients/{projectAClientId} ");
+                returnValue = this.RequestContent<ProjectAClientModel>(request);
+            }
+
+            return returnValue;
+        }
+
+        /// <summary>
         /// Retrieves the custom attributes.
         /// </summary>
         /// <param name="projectId">The project identifier.</param>

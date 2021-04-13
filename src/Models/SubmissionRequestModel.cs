@@ -53,6 +53,14 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         public long ProjectId { get; set; }
 
         /// <summary>
+        /// Gets or sets the project a client identifier.
+        /// </summary>
+        /// <value>
+        /// The project a client identifier.
+        /// </value>
+        public long? ProjectAClientId { get; set; }
+
+        /// <summary>
         /// Gets or sets the submission identifier.
         /// </summary>
         /// <value>

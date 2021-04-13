@@ -51,10 +51,10 @@ namespace Vasont.Inspire.ProjectDirectorClient.Extensions
 
             if (File.Exists(formModel.FilePath))
             {
-                string fileData = File.ReadAllText(formModel.FilePath);
+                var fileData = File.ReadAllBytes(formModel.FilePath);
 
                 // Write the file data directly to the Stream, rather than serializing it to a string.
-                formDataStream.Write(encoding.GetBytes(fileData), 0, encoding.GetByteCount(fileData));
+                formDataStream.Write(fileData, 0, fileData.Length);
                 formDataStream.Write(lineBreakBytes, 0, lineBreakBytes.Length);
             }
 

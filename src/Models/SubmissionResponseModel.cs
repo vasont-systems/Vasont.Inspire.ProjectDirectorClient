@@ -45,7 +45,15 @@ namespace Vasont.Inspire.ProjectDirectorClient.Models
         /// <value>
         /// The project response.
         /// </value>
-        public ProjectModel ProjectResponse { get; set; }
+        public ProjectModel FindProjectByIdResponse { get; set; }
+
+        /// <summary>
+        /// Gets or sets the find project a clients by identifier response.
+        /// </summary>
+        /// <value>
+        /// The find project a clients by identifier response.
+        /// </value>
+        public ProjectAClientModel FindProjectAClientsByIdResponse { get; set; }
 
         /// <summary>
         /// Gets or sets the file upload responses.
