@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Vasont.Inspire.ProjectDirec
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{2A4C9FE6-0C4B-4760-9399-4BBFF5F58698}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestProjectDirectorClient", "examples\TestProjectDirectorClient\TestProjectDirectorClient.csproj", "{EC475B02-5D20-4D56-A441-8A569637DBC0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestProjectDirectorClient", "examples\TestProjectDirectorClient\TestProjectDirectorClient.csproj", "{EC475B02-5D20-4D56-A441-8A569637DBC0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

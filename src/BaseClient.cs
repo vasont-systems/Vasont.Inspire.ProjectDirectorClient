@@ -1,12 +1,15 @@
-﻿//-------------------------------------------------------------
-// <copyright file="BaseClient.cs" company="Vasont Systems">
-// Copyright (c) Vasont Systems. All rights reserved.
+﻿//-----------------------------------------------------------------------
+// <copyright file="BaseClient.cs" company="GlobalLink Vasont">
+//     Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
-//-------------------------------------------------------------
-namespace Vasont.Inspire.ProjectDirector.Client
+//-----------------------------------------------------------------------
+
+namespace Vasont.Inspire.ProjectDirectorClient
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Net;
     using System.Net.Cache;
     using System.Net.Http;
@@ -18,8 +21,9 @@ namespace Vasont.Inspire.ProjectDirector.Client
     using Newtonsoft.Json;
     using Vasont.Inspire.Core.Errors;
     using Vasont.Inspire.Models.Common;
-    using Vasont.Inspire.ProjectDirector.Client.Properties;
-    using Vasont.Inspire.ProjectDirector.Client.Settings;
+    using Vasont.Inspire.ProjectDirectorClient.Extensions;
+    using Vasont.Inspire.ProjectDirectorClient.Properties;
+    using Vasont.Inspire.ProjectDirectorClient.Settings;
 
     /// <summary>
     /// This class represents the Base Client
@@ -33,14 +37,18 @@ namespace Vasont.Inspire.ProjectDirector.Client
         /// </summary>
         private const string DelegationGrantTypeName = "delegation";
 
+        /// <summary>
+        /// The alpha numeric characters
+        /// </summary>
+        private const string AlphaNumericCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         #endregion Private Constants
 
         #region Private Fields
 
         /// <summary>
-        /// The configuration
+        /// The random generator object
         /// </summary>
-        private ProjectDirectorConfigurationModel configuration;
+        private static Random random = new Random();
 
         /// <summary>
         /// Contains a value indicating whether the class has been disposed.
@@ -51,6 +59,7 @@ namespace Vasont.Inspire.ProjectDirector.Client
         /// Contains a discovery result from the authority.
         /// </summary>
         private DiscoveryDocumentResponse discovery;
+
         #endregion Private Fields
 
         #region Constructors
@@ -61,12 +70,20 @@ namespace Vasont.Inspire.ProjectDirector.Client
         /// <param name="configuration">The configuration.</param>
         public BaseClient(ProjectDirectorConfigurationModel configuration)
         {
-            this.configuration = configuration;
+            this.Configuration = configuration;
         }
 
         #endregion Constructors
 
         #region Public Properties
+
+        /// <summary>
+        /// Gets or sets the Project Director Client configuration.
+        /// </summary>
+        /// <value>
+        /// The configuration.
+        /// </value>
+        public ProjectDirectorConfigurationModel Configuration { get; set; }
 
         /// <summary>
         /// Gets or sets the authorization token.
@@ -137,55 +154,65 @@ namespace Vasont.Inspire.ProjectDirector.Client
         public async Task<bool> AuthenticateAsync(string scopes = "", CancellationToken cancellationToken = default(CancellationToken))
         {
             bool authenticationSuccessful;
-            string requestScopes = scopes + (!string.IsNullOrWhiteSpace(scopes) ? " " : string.Empty) + string.Join(" ", this.configuration.TargetResourceScopes);
 
-            if (this.configuration.AuthenticationMethod == ClientAuthenticationMethods.Delegation && string.IsNullOrWhiteSpace(this.configuration.DelegatedAccessToken))
+            // Check to see if this Client has already authenticated
+            if (!this.HasAuthenticated)
             {
-                throw new ClientException(this.configuration, Resources.AccessMethodRequiresTokenErrorText);
-            }
+                string requestScopes = scopes + (!string.IsNullOrWhiteSpace(scopes) ? " " : string.Empty) + string.Join(" ", this.Configuration.TargetResourceScopes);
 
-            // if we're using discovery and need to call it...
-            if (this.discovery == null && this.configuration.UseDiscovery)
-            {
-                // get the discovery document.
-                this.discovery = await this.RequestDiscoveryAsync(this.configuration.AuthorityUri, cancellationToken);
-
-                if (this.discovery.IsError)
+                if (this.Configuration.AuthenticationMethod == ClientAuthenticationMethods.Delegation && string.IsNullOrWhiteSpace(this.Configuration.DelegatedAccessToken))
                 {
-                    throw new ClientException(this.configuration, this.discovery.Error);
+                    throw new ClientException(this.Configuration, Resources.AccessMethodRequiresTokenErrorText);
+                }
+
+                // if we're using discovery and need to call it...
+                if (this.discovery == null && this.Configuration.UseDiscovery)
+                {
+                    // get the discovery document.
+                    this.discovery = await this.RequestDiscoveryAsync(this.Configuration.AuthorityUri, cancellationToken);
+
+                    if (this.discovery.IsError)
+                    {
+                        throw new ClientException(this.Configuration, this.discovery.Error);
+                    }
+                }
+
+                switch (this.Configuration.AuthenticationMethod)
+                {
+                    case ClientAuthenticationMethods.Delegation:
+                        this.TokenResponse = await this.RequestDelegationAsync(requestScopes, cancellationToken).ConfigureAwait(false);
+                        break;
+
+                    case ClientAuthenticationMethods.ClientCredentials:
+                        this.TokenResponse = await this.RequestClientCredentialsAsync(requestScopes, cancellationToken).ConfigureAwait(false);
+                        break;
+
+                    case ClientAuthenticationMethods.ResourceOwnerPassword:
+                        this.TokenResponse = await this.RequestResourceOwnerPasswordAsync(requestScopes, cancellationToken).ConfigureAwait(false);
+                        break;
+                }
+
+                authenticationSuccessful = this.TokenResponse != null && !this.TokenResponse.IsError;
+
+                // an error occurred...
+                if (!authenticationSuccessful)
+                {
+                    string errorMessage = this.TokenResponse.Error + Environment.NewLine + this.TokenResponse.ErrorDescription;
+                    this.LastErrorResponse = new ErrorResponseModel();
+                    this.LastErrorResponse.Messages.Add(new ErrorModel
+                    {
+                        Message = errorMessage,
+                        EventDate = DateTime.UtcNow
+                    });
+
+                    // bubble up an error response.
+                    throw new ClientException(this.Configuration, errorMessage);
                 }
             }
-
-            switch (this.configuration.AuthenticationMethod)
+            else
             {
-                case ClientAuthenticationMethods.Delegation:
-                    this.TokenResponse = await this.RequestDelegationAsync(requestScopes, cancellationToken).ConfigureAwait(false);
-                    break;
-
-                case ClientAuthenticationMethods.ClientCredentials:
-                    this.TokenResponse = await this.RequestClientCredentialsAsync(requestScopes, cancellationToken).ConfigureAwait(false);
-                    break;
-
-                case ClientAuthenticationMethods.ResourceOwnerPassword:
-                    this.TokenResponse = await this.RequestResourceOwnerPasswordAsync(requestScopes, cancellationToken).ConfigureAwait(false);
-                    break;
-            }
-
-            authenticationSuccessful = this.TokenResponse != null && !this.TokenResponse.IsError;
-
-            // an error occurred...
-            if (!authenticationSuccessful)
-            {
-                string errorMessage = this.TokenResponse.Error + Environment.NewLine + this.TokenResponse.ErrorDescription;
-                this.LastErrorResponse = new ErrorResponseModel();
-                this.LastErrorResponse.Messages.Add(new ErrorModel
-                {
-                    Message = errorMessage,
-                    EventDate = DateTime.UtcNow
-                });
-
-                // bubble up an error response.
-                throw new ClientException(this.configuration, errorMessage);
+                // This client is already authenticated so return true
+                authenticationSuccessful = true;
             }
 
             return authenticationSuccessful;
@@ -231,7 +258,7 @@ namespace Vasont.Inspire.ProjectDirector.Client
         public HttpWebRequest CreateRequest(string relativeUri, string method, bool noCache = true, ICredentials credentials = null, string contentType = "application/json")
         {
             // request /Token, on success, return and store token.
-            var request = WebRequest.CreateHttp(new Uri($"{this.configuration.ResourceUri}{relativeUri}"));
+            var request = WebRequest.CreateHttp(new Uri($"{this.Configuration.ResourceUri}{relativeUri}"));
             request.Method = method;
 
             if (credentials == null)
@@ -241,8 +268,7 @@ namespace Vasont.Inspire.ProjectDirector.Client
             }
 
             request.Credentials = credentials;
-            request.UserAgent = this.configuration.UserAgent;
-            request.Accept = "application/json";
+            request.UserAgent = this.Configuration.UserAgent;
             request.ContentType = contentType;
 
             // Set a cache policy level for the "http:" and "https" schemes.
@@ -257,6 +283,63 @@ namespace Vasont.Inspire.ProjectDirector.Client
             }
 
             return request;
+        }
+
+        /// <summary>
+        /// Executes a request and returns true if the request was successful.
+        /// </summary>
+        /// <param name="request">Contains the HttpWebRequest to execute.</param>
+        /// <returns>Returns true if request was successful.</returns>
+        public bool RequestNoContent(HttpWebRequest request)
+        {
+            bool requestSuccess = false;
+            this.ResetErrors();
+
+            try
+            {
+                // execute the request
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    requestSuccess = (int)response.StatusCode == 200;
+                }
+            }
+            catch (WebException webEx)
+            {
+                this.LastException = webEx;
+            }
+
+            return requestSuccess;
+        }
+
+        /// <summary>
+        /// Posts a model to the request and returns no content.
+        /// </summary>
+        /// <typeparam name="T">Contains the type of the object that is to be sent with the request.</typeparam>
+        /// <param name="request">Contains the HttpWebRequest to execute.</param>
+        /// <param name="requestBodyModel">Contains the object to serialize and submit with the request.</param>
+        /// <returns>Returns true if request was successful.</returns>
+        public bool RequestNoContent<T>(HttpWebRequest request, T requestBodyModel)
+        {
+            if (requestBodyModel == null)
+            {
+                throw new ArgumentNullException(nameof(requestBodyModel));
+            }
+
+            // check to ensure we're not trying to post data on a GET or other non-body request.
+            if (request.Method != HttpMethod.Post.Method && request.Method != HttpMethod.Put.Method && request.Method != HttpMethod.Delete.Method)
+            {
+                throw new HttpRequestException(Resources.InvalidRequestTypeErrorText);
+            }
+
+            byte[] requestData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(requestBodyModel));
+
+            // write data out to the request stream
+            using (var postStream = request.GetRequestStream())
+            {
+                postStream.Write(requestData, 0, requestData.Length);
+            }
+
+            return this.RequestNoContent(request);
         }
 
         /// <summary>
@@ -298,10 +381,9 @@ namespace Vasont.Inspire.ProjectDirector.Client
         /// <returns>Returns a <see cref="byte[]"/> representation of the requested content</returns>
         public byte[] RequestContentStream(HttpWebRequest request)
         {
-            UTF8Encoding utf8 = new UTF8Encoding(true, true);
-            string content = this.RequestContent(request);
+            byte[] returnBytes = this.RequestStream(request);
 
-            return !string.IsNullOrWhiteSpace(content) && !this.HasError ? utf8.GetBytes(content) : default(byte[]);
+            return returnBytes != null && returnBytes.Length > 0 && !this.HasError ? returnBytes : default(byte[]);
         }
 
         /// <summary>
@@ -313,10 +395,9 @@ namespace Vasont.Inspire.ProjectDirector.Client
         /// <returns>Returns a <see cref="byte[]"/> representation of the requested content.</returns>
         public byte[] RequestContentStream<T>(HttpWebRequest request, T requestBodyModel)
         {
-            UTF8Encoding utf8 = new UTF8Encoding(true, true);
-            string content = this.RequestContent(request, requestBodyModel);
+            byte[] returnBytes = this.RequestStream(request, requestBodyModel);
 
-            return !string.IsNullOrWhiteSpace(content) && !this.HasError ? utf8.GetBytes(content) : default(byte[]);
+            return returnBytes != null && returnBytes.Length > 0 && !this.HasError ? returnBytes : default(byte[]);
         }
 
         /// <summary>
@@ -410,7 +491,17 @@ namespace Vasont.Inspire.ProjectDirector.Client
                                     if ((int)exceptionResponse.StatusCode >= 400 && !string.IsNullOrWhiteSpace(resultContent))
                                     {
                                         // set the error model
-                                        this.LastErrorResponse = JsonConvert.DeserializeObject<ErrorResponseModel>(resultContent);
+                                        var lastErrorResponse = new ErrorResponseModel();
+                                        lastErrorResponse.Messages.Add(new ErrorModel
+                                        {
+                                            Message = resultContent,
+                                            StackTrace = webEx.StackTrace,
+                                            EventDate = DateTime.UtcNow,
+                                            ErrorType = ErrorType.Critical,
+                                            PropertyName = "HttpWebResponse"
+                                        });
+
+                                        this.LastErrorResponse = lastErrorResponse;
                                     }
                                 }
                             }
@@ -437,6 +528,140 @@ namespace Vasont.Inspire.ProjectDirector.Client
             return resultContent;
         }
 
+        /// <summary>
+        /// Requests the stream.
+        /// </summary>
+        /// <param name="request">The request.</param>
+        /// <returns>
+        /// Returns the Byte Array of the Requested Stream.
+        /// </returns>
+        public byte[] RequestStream(HttpWebRequest request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            byte[] resultStream = { };
+            this.ResetErrors();
+
+            try
+            {
+                // execute the request
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    using (var responseStream = response.GetResponseStream())
+                    {
+                        if (responseStream != null)
+                        {
+                            resultStream = responseStream.ReadAllBytes();
+
+                            // if the status code was an error and there's content...
+                            if ((int)response.StatusCode >= 400 && resultStream.Length >= 0)
+                            {
+                                var resultContent = new StreamReader(responseStream).ReadToEnd();
+
+                                // set the error model
+                                this.LastErrorResponse = JsonConvert.DeserializeObject<ErrorResponseModel>(resultContent);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (WebException webEx)
+            {
+                this.LastException = webEx;
+
+                if (webEx.Response != null)
+                {
+                    using (var exceptionResponse = (HttpWebResponse)webEx.Response)
+                    {
+                        if (exceptionResponse != null)
+                        {
+                            using (var responseStream = exceptionResponse.GetResponseStream())
+                            {
+                                if (responseStream != null)
+                                {
+                                    var resultContent = new StreamReader(responseStream).ReadToEnd();
+
+                                    // if the status code was an error and there's content...
+                                    if ((int)exceptionResponse.StatusCode >= 400 && !string.IsNullOrWhiteSpace(resultContent))
+                                    {
+                                        // set the error model
+                                        var lastErrorResponse = new ErrorResponseModel();
+                                        lastErrorResponse.Messages.Add(new ErrorModel
+                                        {
+                                            Message = resultContent,
+                                            StackTrace = webEx.StackTrace,
+                                            EventDate = DateTime.UtcNow,
+                                            ErrorType = ErrorType.Critical,
+                                            PropertyName = "HttpWebResponse"
+                                        });
+
+                                        this.LastErrorResponse = lastErrorResponse;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (this.LastErrorResponse == null)
+                {
+                    var lastErrorResponse = new ErrorResponseModel();
+                    lastErrorResponse.Messages.Add(new ErrorModel
+                    {
+                        Message = webEx.Message,
+                        StackTrace = webEx.StackTrace,
+                        EventDate = DateTime.UtcNow,
+                        ErrorType = ErrorType.Critical,
+                        PropertyName = "HttpWebResponse"
+                    });
+
+                    this.LastErrorResponse = lastErrorResponse;
+                }
+            }
+
+            return resultStream;
+        }
+
+        /// <summary>
+        /// Requests the stream.
+        /// </summary>
+        /// <typeparam name="T">Contains the type of the object that is to be sent with the request.</typeparam>
+        /// <param name="request">The request.</param>
+        /// <param name="requestBodyModel">Contains the object to serialize and submit with the request.</param>
+        /// <returns>
+        /// Returns the Byte Array of the Requested Stream.
+        /// </returns>
+        public byte[] RequestStream<T>(HttpWebRequest request, T requestBodyModel)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (requestBodyModel == null)
+            {
+                throw new ArgumentNullException(nameof(requestBodyModel));
+            }
+
+            // check to ensure we're not trying to post data on a GET or other non-body request.
+            if (request.Method != HttpMethod.Post.Method && request.Method != HttpMethod.Put.Method && request.Method != HttpMethod.Delete.Method)
+            {
+                throw new HttpRequestException(Resources.InvalidRequestTypeErrorText);
+            }
+
+            byte[] requestData = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(requestBodyModel));
+
+            // write data out to the request stream
+            using (var postStream = request.GetRequestStream())
+            {
+                postStream.Write(requestData, 0, requestData.Length);
+            }
+
+            return this.RequestStream(request);
+        }
         #endregion Public Methods
 
         #region IDispose Methods
@@ -516,19 +741,19 @@ namespace Vasont.Inspire.ProjectDirector.Client
 
             using (HttpClient client = new HttpClient())
             {
-                if (this.configuration.IncludeBasicAuthenticationHeader)
+                if (this.Configuration.IncludeBasicAuthenticationHeader)
                 {
-                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.configuration.ClientId + ":" + this.configuration.ClientSecret));
+                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.Configuration.ClientId + ":" + this.Configuration.ClientSecret));
 
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", headerValue);
                 }
 
                 var tokenRequest = new ClientCredentialsTokenRequest
                 {
-                    Address = this.configuration.AuthorityUri.ToString(),
-                    ClientId = this.configuration.ClientId,
+                    Address = this.Configuration.AuthorityUri.ToString(),
+                    ClientId = this.Configuration.ClientId,
                     Scope = scopes,
-                    ClientSecret = this.configuration.ClientSecret
+                    ClientSecret = this.Configuration.ClientSecret
                 };
 
                 result = await client.RequestClientCredentialsTokenAsync(tokenRequest, cancellationToken)
@@ -552,23 +777,23 @@ namespace Vasont.Inspire.ProjectDirector.Client
 
             using (HttpClient client = new HttpClient())
             {
-                if (this.configuration.IncludeBasicAuthenticationHeader)
+                if (this.Configuration.IncludeBasicAuthenticationHeader)
                 {
-                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.configuration.ClientId + ":" + this.configuration.ClientSecret));
+                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.Configuration.ClientId + ":" + this.Configuration.ClientSecret));
 
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", headerValue);
                 }
 
                 var tokenRequest = new TokenRequest
                 {
-                    Address = this.configuration.AuthorityUri.ToString(),
+                    Address = this.Configuration.AuthorityUri.ToString(),
                     GrantType = DelegationGrantTypeName,
-                    ClientId = this.configuration.ClientId,
-                    ClientSecret = this.configuration.ClientSecret,
+                    ClientId = this.Configuration.ClientId,
+                    ClientSecret = this.Configuration.ClientSecret,
                     Parameters =
                         {
                             { "scope", scopes },
-                            { "token", this.configuration.DelegatedAccessToken }
+                            { "token", this.Configuration.DelegatedAccessToken }
                         }
                 };
 
@@ -593,21 +818,21 @@ namespace Vasont.Inspire.ProjectDirector.Client
 
             using (HttpClient client = new HttpClient())
             {
-                if (this.configuration.IncludeBasicAuthenticationHeader)
+                if (this.Configuration.IncludeBasicAuthenticationHeader)
                 {
-                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.configuration.ClientId + ":" + this.configuration.ClientSecret));
+                    string headerValue = Convert.ToBase64String(System.Text.Encoding.GetEncoding("ISO-8859-1").GetBytes(this.Configuration.ClientId + ":" + this.Configuration.ClientSecret));
 
                     client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", headerValue);
                 }
 
                 var config = new PasswordTokenRequest
                 {
-                    Address = this.configuration.AuthorityUri.ToString(),
-                    ClientId = this.configuration.ClientId,
+                    Address = this.Configuration.AuthorityUri.ToString(),
+                    ClientId = this.Configuration.ClientId,
                     Scope = scopes,
-                    ClientSecret = this.configuration.ClientSecret,
-                    UserName = this.configuration.UserName,
-                    Password = this.configuration.Password,
+                    ClientSecret = this.Configuration.ClientSecret,
+                    UserName = this.Configuration.UserName,
+                    Password = this.Configuration.Password,
                 };
 
                 result = await client.RequestPasswordTokenAsync(config, cancellationToken)
@@ -615,6 +840,25 @@ namespace Vasont.Inspire.ProjectDirector.Client
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Retrieves the route prefix.
+        /// </summary>
+        /// <returns>Returns the value of Route Prefix including forward slash if one exists.</returns>
+        protected string RetrieveRoutePrefix()
+        {
+            return !string.IsNullOrWhiteSpace(this.Configuration.RoutePrefix) ? $"/{this.Configuration.RoutePrefix}" : string.Empty;
+        }
+
+        /// <summary>
+        /// Generates the random alpha numeric string.
+        /// </summary>
+        /// <param name="length">Contains the length of the Alpha Numeric string to generate.</param>
+        /// <returns>Returns a string containing Random Alpha Numeric characters.</returns>
+        protected string GenerateRandomAlphaNumeric(int length)
+        {
+            return new string(Enumerable.Range(1, length).Select(a => AlphaNumericCharacters[random.Next(AlphaNumericCharacters.Length)]).ToArray());
         }
         #endregion Protected Methods
 
@@ -628,7 +872,6 @@ namespace Vasont.Inspire.ProjectDirector.Client
             this.ResetErrors();
             this.AuthorizationToken = (string.Empty, DateTime.MinValue);
         }
-
         #endregion Private Methods
     }
 }

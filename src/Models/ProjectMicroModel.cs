@@ -1,17 +1,18 @@
-﻿//-------------------------------------------------------------
-// <copyright file="ProjectDirectorProjectModel.cs" company="Vasont Systems">
-// Copyright (c) Vasont Systems. All rights reserved.
+﻿//-----------------------------------------------------------------------
+// <copyright file="ProjectMicroModel.cs" company="GlobalLink Vasont">
+//     Copyright (c) GlobalLink Vasont. All rights reserved.
 // </copyright>
-//-------------------------------------------------------------
-namespace Vasont.Inspire.ProjectDirector.Client.Models
+//-----------------------------------------------------------------------
+
+namespace Vasont.Inspire.ProjectDirectorClient.Models
 {
     /// <summary>
     /// This class represents the Project Model used with the Project Director Rest Api
     /// </summary>
-    public class ProjectDirectorProjectModel
+    public class ProjectMicroModel
     {
         /// <summary>
-        /// Gets or sets a value indicating whether this <see cref="ProjectDirectorProjectModel"/> is enabled.
+        /// Gets or sets a value indicating whether this <see cref="ProjectMicroModel"/> is enabled.
         /// </summary>
         /// <value>
         ///   <c>true</c> if enabled; otherwise, <c>false</c>.
